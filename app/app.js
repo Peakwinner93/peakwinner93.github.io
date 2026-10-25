@@ -5,7 +5,7 @@ const APP = 'PeakMind';
 const KEY = 'peakmind.v1';
 const OLD_KEY = 'peakwinner.v1';
 const VERSION = '1.5.0';
-const OFFICIAL_URL = 'https://peakwinner93.github.io/peakmind/app/';
+const OFFICIAL_URL = 'https://peakwinner93.github.io/app/';
 (() => {
 if (!OFFICIAL_URL || location.protocol === 'file:') return;
 const host = h => String(h).toLowerCase().replace(/^www\./, '');
