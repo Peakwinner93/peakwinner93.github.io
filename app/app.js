@@ -108,7 +108,7 @@ fr: {
 'lvl.up': 'Niveau supérieur !', 'lvl.rankUp': 'Nouveau rang !', 'lvl.unlocked': 'Débloqué', 'lvl.see': 'Voir mes récompenses',
 'rw.avatar': 'Avatar', 'rw.frame': 'Cadre', 'rw.theme': 'Thème',
 'rw.equipped': 'Équipé ✓', 'rw.locked': 'Se débloque au niveau {n}', 'rw.photo.q': 'Remplacer ta photo de profil par cet avatar ?', 'rw.photo.ok': 'Remplacer',
-'rw.hint': 'Monte de niveau pour débloquer de nouveaux styles. Ce que tu équipes sera visible dans le futur classement.',
+'rw.hint': 'Monte de niveau pour débloquer de nouveaux styles. Ce que tu équipes (avatar icône et cadre) est visible dans le classement.',
 'badges.hint': 'Chaque badge débloqué rapporte +50 XP.', 'fm.none': 'Aucun',
 'pt.themes': 'Thèmes', 'pt.avatars': 'Avatars', 'pt.frames': 'Cadres', 'pt.badges': 'Badges', 's.theme.change': 'Changer',
 'pp.r.steps': '+{n} XP par jour où tu atteins ton objectif de pas', 'pp.r.run': '+{n} XP par jour avec une course d\'au moins 1 km',
@@ -222,7 +222,7 @@ en: {
 'lvl.up': 'Level up!', 'lvl.rankUp': 'New rank!', 'lvl.unlocked': 'Unlocked', 'lvl.see': 'See my rewards',
 'rw.avatar': 'Avatar', 'rw.frame': 'Frame', 'rw.theme': 'Theme',
 'rw.equipped': 'Equipped ✓', 'rw.locked': 'Unlocks at level {n}', 'rw.photo.q': 'Replace your profile picture with this avatar?', 'rw.photo.ok': 'Replace',
-'rw.hint': 'Level up to unlock new styles. What you equip will show in the upcoming leaderboard.',
+'rw.hint': 'Level up to unlock new styles. What you equip (icon avatar and frame) shows in the leaderboard.',
 'badges.hint': 'Each badge you unlock is worth +50 XP.', 'fm.none': 'None',
 'pt.themes': 'Themes', 'pt.avatars': 'Avatars', 'pt.frames': 'Frames', 'pt.badges': 'Badges', 's.theme.change': 'Change',
 'pp.r.steps': '+{n} XP per day you hit your step goal', 'pp.r.run': '+{n} XP per day with a run of at least 1 km',
@@ -361,13 +361,15 @@ return s;
 const L = (obj, base) => obj[S.lang === 'en' ? base + 'en' : base + 'fr'] ?? obj[S.lang] ?? obj.fr;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = (n, d = 0) => Number(n).toLocaleString(S.lang === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: d });
+const numVal = v => parseFloat(String(v ?? '').replace(/\s/g, '').replace(',', '.'));
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 const dkey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const today = () => dkey(new Date());
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
 const daysBetween = (a, b) => Math.round((parseKey(b) - parseKey(a)) / 86400000);
-const fmtDate = (k, long) => parseKey(k).toLocaleDateString(S.lang === 'fr' ? 'fr-FR' : 'en-US', long ? { weekday: 'long', day: 'numeric', month: 'long' } : { day: 'numeric', month: 'short' });
+const fr1 = s => S.lang === 'fr' ? s.replace(/(^|\s)1(?=\s)/, (m, sp) => sp + '1er') : s;
+const fmtDate = (k, long) => fr1(parseKey(k).toLocaleDateString(S.lang === 'fr' ? 'fr-FR' : 'en-US', long ? { weekday: 'long', day: 'numeric', month: 'long' } : { day: 'numeric', month: 'short' }));
 function current(g) { return g.type === 'save' ? saveTotal(g) : g.entries && g.entries.length ? g.entries[g.entries.length - 1].v : g.start; }
 const saveTotal = g => Math.max(0, Math.round((g.dep || []).reduce((s, e) => s + e.a, 0) * 100) / 100);
 function pct(g) { const span = g.target - g.start; if (!span) return 1; return Math.max(0, Math.min(1, (current(g) - g.start) / span)); }
@@ -993,7 +995,7 @@ return `<article class="card" data-goal="${g.id}">
       <div class="row between"><span class="big-num num">${nf(cur, 1)}<small class="muted" style="font-size:1rem"> / ${nf(g.target, 1)} ${esc(unit)}</small></span><b class="num" style="color:var(--accent)">${Math.round(p * 100)} %</b></div>
       <div class="bar"><i style="width:${(p * 100).toFixed(1)}%"></i></div>
       ${raiseHtml(g)}
-      <form class="inline-form" data-entry="${g.id}"><input type="number" inputmode="decimal" step="any" placeholder="${esc(t('card.value'))}" aria-label="${esc(t('card.value'))}" required><button class="btn" type="submit">${esc(t('card.add'))}</button></form>
+      <form class="inline-form" data-entry="${g.id}"><input type="text" inputmode="decimal" step="any" placeholder="${esc(t('card.value'))}" aria-label="${esc(t('card.value'))}" required><button class="btn" type="submit">${esc(t('card.add'))}</button></form>
     </article>`;
 }
 function stepsCard(g) {
@@ -1231,7 +1233,7 @@ root.querySelectorAll('[data-open]').forEach(b => { b.onclick = () => openDetail
 root.querySelectorAll('[data-relapse]').forEach(b => b.onclick = () => relapse(byId(b.dataset.relapse)));
 root.querySelectorAll('[data-entry]').forEach(f => f.onsubmit = e => {
 e.preventDefault();
-const v = parseFloat(f.querySelector('input').value.replace(',', '.'));
+const v = numVal(f.querySelector('input').value);
 if (!Number.isFinite(v)) return;
 const before = ppStats().total;
 addEntry(byId(f.dataset.entry), v); render();
@@ -1239,7 +1241,7 @@ rewardFeedback(before, t('saved'));
 });
 root.querySelectorAll('[data-dep]').forEach(f => f.onsubmit = e => {
 e.preventDefault();
-const v = parseFloat(f.querySelector('input').value.replace(',', '.'));
+const v = numVal(f.querySelector('input').value);
 if (!Number.isFinite(v) || v <= 0) { SFX.play('error'); return; }
 saveMove(byId(f.dataset.dep), v); render();
 });
@@ -1278,7 +1280,9 @@ const ready = () => !!(url && key);
 const getS = () => { try { return JSON.parse(localStorage.getItem(SKEY)); } catch (e) { return null; } };
 const setS = s => { try { if (s) localStorage.setItem(SKEY, JSON.stringify(s)); else localStorage.removeItem(SKEY); } catch (e) {  } };
 async function call(path, body, tok) {
-const r = await fetch(url + path, { method: 'POST', headers: { apikey: key, Authorization: `Bearer ${tok || key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+const headers = { apikey: key, 'Content-Type': 'application/json' };
+if (tok || !key.startsWith('sb_')) headers.Authorization = `Bearer ${tok || key}`;
+const r = await fetch(url + path, { method: 'POST', headers, body: JSON.stringify(body || {}) });
 const txt = await r.text(); let data = null;
 try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = null; }
 if (!r.ok) { const err = new Error((data && (data.message || data.msg || data.error_description || data.error)) || 'http_' + r.status); err.status = r.status; throw err; }
@@ -1328,7 +1332,8 @@ let syncTimer = null;
 function scheduleSync() {
 if (!NET.ready() || !S.league || !S.league.joined) return;
 clearTimeout(syncTimer);
-syncTimer = setTimeout(() => leagueSync(true).catch(e => { league().err = netErr(e); save(); }), 2500);
+const wait = Math.max(2500, 16000 - (Date.now() - (S.league.lastSync || 0)));
+syncTimer = setTimeout(() => leagueSync(true).catch(e => { league().err = netErr(e); save(); }), wait);
 }
 const loading = {}, lastTry = {};
 async function leagueLoad(scope, force) {
@@ -1393,7 +1398,7 @@ html += `<section class="card lb-join"><span class="section-title" style="margin
 html += `<div class="seg seg-3" role="tablist" aria-label="${esc(t('tab.league'))}">${scopes.map(k => `<button type="button" role="tab" data-lgscope="${k}" aria-selected="${k === scope}">${esc(t('lg.' + k))}</button>`).join('')}</div>`;
 if (scope === 'week') html += `<p class="lb-note">${esc(t('lg.week.reset'))}</p>`;
 if (scope === 'friends') html += `<section class="card"><span class="section-title" style="margin:0">${esc(t('lg.add.t'))}</span>
-          <form class="inline-form" id="lgAdd"><input id="lgCode" maxlength="11" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="PM-XXXX-XXX" aria-label="${esc(t('lg.add.t'))}"><button class="btn" type="submit">${esc(t('lg.add.btn'))}</button></form>
+          <form class="inline-form" id="lgAdd"><input id="lgCode" maxlength="20" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="PM-XXXX-XXX" aria-label="${esc(t('lg.add.t'))}"><button class="btn" type="submit">${esc(t('lg.add.btn'))}</button></form>
           <p class="lb-err" id="lgAddErr" role="alert"></p></section>` + codeCard(false);
 if (lg.err) html += `<p class="lb-err" role="alert">${esc(lg.err)}${rows ? ' · ' + esc(t('lg.cached')) : ''}</p>`;
 if (!rows) html += `<p class="lb-note">${esc(t('lg.loading'))}</p>`;
@@ -1956,7 +1961,7 @@ const tot = saveTotal(g), p = pct(g), deps = (g.dep || []).map((e, i) => ({ e, i
 body += `<div class="card save-detail"><div class="row between" style="align-items:flex-end"><div><span class="big-num num">${esc(money(tot))}</span><div class="muted num">/ ${esc(money(g.target))} · ${Math.round(p * 100)} %</div></div>${saveMtn(p, 'lg')}</div>
         <div class="bar${p >= 1 ? ' good' : ''}"><i style="width:${(p * 100).toFixed(1)}%"></i></div>
         ${saveEtaHtml(g)}
-        <form class="dep-form" id="depForm"><input type="number" min="0" step="any" inputmode="decimal" placeholder="${esc(t('dep.amount', { c: cur() }))}" aria-label="${esc(t('dep.amount', { c: cur() }))}" required>
+        <form class="dep-form" id="depForm"><input type="text" min="0" step="any" inputmode="decimal" placeholder="${esc(t('dep.amount', { c: cur() }))}" aria-label="${esc(t('dep.amount', { c: cur() }))}" required>
           <div class="grid-2"><button class="btn" type="submit">＋ ${esc(t('dep.add'))}</button><button class="btn subtle" type="button" id="depTake">− ${esc(t('dep.take'))}</button></div></form></div>`;
 if (deps.length) body += `<div class="card"><span class="section-title" style="margin:0">${esc(t('d.history'))}</span><div class="history">${deps.slice(0, 20).map(({ e, i }) => `<div><span>${esc(fmtDate(e.d))}${e.n ? ' · ' + esc(e.n) : ''}</span><span class="row" style="gap:10px"><b class="num ${e.a < 0 ? 'neg' : 'pos'}">${e.a < 0 ? '−' : '+'}${esc(money(Math.abs(e.a)))}</b><button type="button" class="tx-del" data-depdel="${i}" aria-label="${esc(t('v.del'))}">✕</button></span></div>`).join('')}</div></div>`;
 } else {
@@ -1968,7 +1973,7 @@ body += `<div class="card"><div class="row between"><span class="big-num num">${
         <p class="muted" style="margin:0">${esc(left >= 0 ? t('d.deadline', { n: left, date: fmtDate(g.deadline) }) : t('d.late', { date: fmtDate(g.deadline) }))}${left >= 0 && pct(g) < 1 ? ' · ' + esc(t('d.pace', { v: nf(idealAt(g, today()), 1), unit })) : ''}</p>
         ${chartSvg(g)}
         ${isKmGoal(g) ? `<button type="button" class="btn ghost block" data-run>${IC.run}${esc(t('run.start'))}</button>` : ''}
-        <form class="inline-form" data-entry="${g.id}"><input type="number" inputmode="decimal" step="any" placeholder="${esc(t('card.value'))}" aria-label="${esc(t('card.value'))}" required><button class="btn" type="submit">${esc(t('card.add'))}</button></form></div>`;
+        <form class="inline-form" data-entry="${g.id}"><input type="text" inputmode="decimal" step="any" placeholder="${esc(t('card.value'))}" aria-label="${esc(t('card.value'))}" required><button class="btn" type="submit">${esc(t('card.add'))}</button></form></div>`;
 if (g.type === 'tiktok') body += `<div class="card"><p class="muted" style="margin:0">${esc(t('d.tiktok.note'))}</p>${g.handle ? `<a class="btn ghost block" style="text-align:center;text-decoration:none" href="https://www.tiktok.com/@${encodeURIComponent(g.handle)}" target="_blank" rel="noopener">${esc(t('d.open', { h: g.handle }))}</a>` : ''}</div>`;
 if (g.entries.length) body += `<div class="card"><span class="section-title" style="margin:0">${esc(t('d.history'))}</span><div class="history">${g.entries.map((e, i) => ({ e, i })).reverse().slice(0, 12).map(({ e, i }) => `<div><span>${esc(fmtDate(e.d))}</span><span class="row" style="gap:10px"><b class="num">${nf(e.v, 1)} ${esc(unit)}</b><button type="button" class="tx-del" data-entdel="${i}" aria-label="${esc(t('ed.ent.del'))}">✕</button></span></div>`).join('')}</div></div>`;
 }
@@ -1987,7 +1992,7 @@ sheet.querySelectorAll('[data-stepset]').forEach(b => b.onclick = () => openStep
 sheet.querySelectorAll('[data-run]').forEach(b => b.onclick = openRun);
 const df = $('#depForm');
 const depGo = sign => {
-const v = parseFloat(df.querySelector('input').value.replace(',', '.'));
+const v = numVal(df.querySelector('input').value);
 if (!Number.isFinite(v) || v <= 0) { SFX.play('error'); df.querySelector('input').focus(); return; }
 if (sign < 0 && v > saveTotal(g)) { SFX.play('error'); toast(t('dep.tooMuch')); return; }
 saveMove(g, sign * v); render(); openDetail(g.id);
@@ -1995,7 +2000,7 @@ saveMove(g, sign * v); render(); openDetail(g.id);
 if (df) { df.onsubmit = e => { e.preventDefault(); depGo(1); }; $('#depTake').onclick = () => depGo(-1); }
 sheet.querySelectorAll('[data-depdel]').forEach(b => b.onclick = () => confirmBox(t('dep.del.q'), t('v.del'), () => { g.dep.splice(+b.dataset.depdel, 1); save(); SFX.play('down'); render(); openDetail(g.id); }));
 sheet.querySelectorAll('[data-entry]').forEach(f => f.onsubmit = e => {
-e.preventDefault(); const v = parseFloat(f.querySelector('input').value.replace(',', '.'));
+e.preventDefault(); const v = numVal(f.querySelector('input').value);
 if (!Number.isFinite(v)) return;
 const before = ppStats().total; addEntry(g, v); render(); openDetail(g.id); rewardFeedback(before, t('saved'));
 });
@@ -2025,7 +2030,7 @@ const emoji = tp ? tp.e : '🎯';
 const wd = t('wd'), order = [1, 2, 3, 4, 5, 6, 0];
 let fields = `<label class="field" for="fTitle">${esc(t('f.title'))}<input id="fTitle" maxlength="60" value="${esc(tp ? L(tp, '') : '')}" required></label>
       <div class="field">${esc(t('f.emoji'))}<div class="chips" id="fEmoji">${EMOJIS.map(e => `<button type="button" class="chip" data-emoji="${e}" aria-pressed="${e === emoji}">${e}</button>`).join('')}</div></div>`;
-if (type === 'target') fields += `<div class="grid-2"><label class="field" for="fStart">${esc(t('f.start'))}<input id="fStart" type="number" step="any" inputmode="decimal" value="${tp ? tp.start : ''}"></label><label class="field" for="fTarget">${esc(t('f.target'))}<input id="fTarget" type="number" step="any" inputmode="decimal" value="${tp ? tp.target : ''}"></label></div>
+if (type === 'target') fields += `<div class="grid-2"><label class="field" for="fStart">${esc(t('f.start'))}<input id="fStart" type="text" step="any" inputmode="decimal" value="${tp ? tp.start : ''}"></label><label class="field" for="fTarget">${esc(t('f.target'))}<input id="fTarget" type="text" step="any" inputmode="decimal" value="${tp ? tp.target : ''}"></label></div>
       <div class="grid-2"><label class="field" for="fUnit">${esc(t('f.unit'))}<input id="fUnit" maxlength="14" value="${esc(tp ? L(tp, 'u') : t('unit.default'))}"></label><label class="field" for="fDeadline">${esc(t('f.deadline'))}<input id="fDeadline" type="date" value="${dl}" min="${dkey(addDays(new Date(), 1))}"></label></div>`;
 if (type === 'tiktok') fields += `<label class="field" for="fHandle">${esc(t('f.handle'))}<input id="fHandle" maxlength="30" placeholder="peakwinner" autocapitalize="off" spellcheck="false"></label>
       <div class="grid-2"><label class="field" for="fStart">${esc(t('f.followers'))}<input id="fStart" type="number" min="0" inputmode="numeric" value="${tp.start}"></label><label class="field" for="fTarget">${esc(t('f.goalFollowers'))}<input id="fTarget" type="number" min="1" inputmode="numeric" value="${tp.target}"></label></div>
@@ -2033,8 +2038,8 @@ if (type === 'tiktok') fields += `<label class="field" for="fHandle">${esc(t('f.
 if (type === 'habit') fields += `<div class="field">${esc(t('f.days'))}<div class="chips days" id="fDays">${order.map(d => `<button type="button" class="chip" data-day="${d}" aria-pressed="${days.includes(d)}">${wd[d]}</button>`).join('')}</div></div>`;
 if (type === 'steps') fields += `<label class="field" for="fDaily">${esc(t('f.daily'))}<input id="fDaily" type="number" min="100" max="100000" step="500" inputmode="numeric" value="${tp && tp.daily ? tp.daily : 8000}"></label>`;
 if (type === 'quit') fields += `<label class="field" for="fSince">${esc(t('f.since'))}<input id="fSince" type="datetime-local" value="${nowLocal}" max="${nowLocal}"></label>`;
-if (type === 'save') fields += `<div class="grid-2"><label class="field" for="fTarget">${esc(t('f.price', { c: cur() }))}<input id="fTarget" type="number" min="1" step="any" inputmode="decimal" value="${tp ? tp.target : ''}"></label><label class="field" for="fHave">${esc(t('f.have', { c: cur() }))}<input id="fHave" type="number" min="0" step="any" inputmode="decimal" value="0"></label></div>
-      <label class="field" for="fPlan">${esc(t('f.plan', { c: cur() }))}<input id="fPlan" type="number" min="0" step="any" inputmode="decimal" value="${tp && tp.plan ? tp.plan : 5}"><small class="muted" id="fEta"></small></label>`;
+if (type === 'save') fields += `<div class="grid-2"><label class="field" for="fTarget">${esc(t('f.price', { c: cur() }))}<input id="fTarget" type="text" min="1" step="any" inputmode="decimal" value="${tp ? tp.target : ''}"></label><label class="field" for="fHave">${esc(t('f.have', { c: cur() }))}<input id="fHave" type="text" min="0" step="any" inputmode="decimal" value="0"></label></div>
+      <label class="field" for="fPlan">${esc(t('f.plan', { c: cur() }))}<input id="fPlan" type="text" min="0" step="any" inputmode="decimal" value="${tp && tp.plan ? tp.plan : 5}"><small class="muted" id="fEta"></small></label>`;
 fields += `<label class="field" for="fWhy">${esc(t('f.why'))}<input id="fWhy" maxlength="120" placeholder="${esc(t('f.why.ph'))}"></label>
       <p class="muted" id="fErr" role="alert" style="margin:0;color:var(--bad)"></p>
       <button type="button" class="btn block" id="fCreate">${esc(t('f.create'))}</button>`;
@@ -2042,7 +2047,7 @@ openSheet(`<div class="sheet-head"><button type="button" class="icon-btn" id="ba
 $('#backF').onclick = () => type === 'tiktok' ? openNew() : pickTemplate(type);
 sheet.querySelectorAll('[data-emoji]').forEach(b => b.onclick = () => sheet.querySelectorAll('[data-emoji]').forEach(x => x.setAttribute('aria-pressed', String(x === b))));
 sheet.querySelectorAll('#fDays [data-day]').forEach(b => b.onclick = () => b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')));
-const num = id => { const el = $(id); return el ? parseFloat(String(el.value).replace(',', '.')) : NaN; };
+const num = id => { const el = $(id); return el ? numVal(el.value) : NaN; };
 const etaLive = () => {
 const el = $('#fEta'); if (!el) return;
 const tg = num('#fTarget'), have = num('#fHave') || 0, plan = num('#fPlan');
@@ -2057,7 +2062,7 @@ const title = $('#fTitle').value.trim(), err = $('#fErr');
 if (!title) { err.textContent = t('f.required'); SFX.play('error'); $('#fTitle').focus(); return; }
 const g = { id: uid(), type, title, emoji: (sheet.querySelector('[data-emoji][aria-pressed="true"]') || {}).dataset?.emoji || '🎯', why: $('#fWhy').value.trim(), created: today() };
 if (type === 'target' || type === 'tiktok') {
-const st = parseFloat(String($('#fStart').value).replace(',', '.')), tg = parseFloat(String($('#fTarget').value).replace(',', '.'));
+const st = numVal($('#fStart').value), tg = numVal($('#fTarget').value);
 if (!Number.isFinite(st) || !Number.isFinite(tg) || st === tg) { err.textContent = t('f.numbers'); SFX.play('error'); return; }
 Object.assign(g, { start: st, target: tg, deadline: $('#fDeadline').value || dl, entries: [] });
 if (type === 'target') g.unit = $('#fUnit').value.trim() || t('unit.default');
@@ -2848,7 +2853,7 @@ const s = a.toLocaleString(S.lang === 'fr' ? 'fr-FR' : 'en-US', { minimumFractio
 return (n < 0 ? '−' : '') + (c === '$' || c === '£' ? c + s : s + ' ' + c);
 }
 const r2 = n => Math.round(n * 100) / 100;
-const fmtDateY = k => { const d = parseKey(k); return d.toLocaleDateString(S.lang === 'fr' ? 'fr-FR' : 'en-US', d.getFullYear() === new Date().getFullYear() ? { day: 'numeric', month: 'long' } : { day: 'numeric', month: 'long', year: 'numeric' }); };
+const fmtDateY = k => { const d = parseKey(k); return fr1(d.toLocaleDateString(S.lang === 'fr' ? 'fr-FR' : 'en-US', d.getFullYear() === new Date().getFullYear() ? { day: 'numeric', month: 'long' } : { day: 'numeric', month: 'long', year: 'numeric' })); };
 function moneyLogDays() { const m = mon(), s = new Set(m.tx.map(x => x.d)); for (const k in m.zero) if (m.zero[k]) s.add(k); return s; }
 const spentIn = (from, to) => r2(mon().tx.filter(x => x.d >= from && x.d <= to).reduce((s, x) => s + x.a, 0));
 const weekEnd = ws => dkey(addDays(parseKey(ws), 6));
@@ -2918,7 +2923,7 @@ return `<article class="card save-card" data-goal="${g.id}">
       <div class="row between" style="align-items:flex-end"><div><span class="big-num num">${esc(money(tot))}</span><div class="muted num">/ ${esc(money(g.target))} · ${Math.round(p * 100)} %</div></div>${saveMtn(p)}</div>
       <div class="bar${p >= 1 ? ' good' : ''}"><i style="width:${(p * 100).toFixed(1)}%"></i></div>
       ${saveEtaHtml(g)}
-      ${p < 1 ? `<form class="inline-form" data-dep="${g.id}"><input type="number" min="0" step="any" inputmode="decimal" placeholder="${esc(t('dep.amount', { c: cur() }))}" aria-label="${esc(t('dep.amount', { c: cur() }))}" required><button class="btn" type="submit">＋ ${esc(t('dep.add'))}</button></form>` : ''}
+      ${p < 1 ? `<form class="inline-form" data-dep="${g.id}"><input type="text" min="0" step="any" inputmode="decimal" placeholder="${esc(t('dep.amount', { c: cur() }))}" aria-label="${esc(t('dep.amount', { c: cur() }))}" required><button class="btn" type="submit">＋ ${esc(t('dep.add'))}</button></form>` : ''}
     </article>`;
 }
 function vaultCard() {
@@ -2977,7 +2982,7 @@ if (!m.budget || S.vaultEdit) {
 const P = [5, 10, 15, 20, 30, 50];
 return `<div class="card v-setup"><b class="v-q">${esc(t('v.b.q'))}</b><p class="muted" style="margin:0">${esc(t('v.b.d'))}</p>
         <div class="chips">${P.map(n => `<button type="button" class="chip num" data-vb="${n}" aria-pressed="${m.budget === n}">${esc(money(n))}</button>`).join('')}</div>
-        <form class="inline-form" id="vbForm"><input id="vbIn" type="number" min="1" step="any" inputmode="decimal" placeholder="${esc(t('v.b.other', { c }))}" value="${m.budget && !P.includes(m.budget) ? m.budget : ''}"><button class="btn" type="submit">${esc(t('v.b.set'))}</button></form>
+        <form class="inline-form" id="vbForm"><input id="vbIn" type="text" min="1" step="any" inputmode="decimal" placeholder="${esc(t('v.b.other', { c }))}" value="${m.budget && !P.includes(m.budget) ? m.budget : ''}"><button class="btn" type="submit">${esc(t('v.b.set'))}</button></form>
         <div class="field">${esc(t('v.cur'))}<div class="chips">${MO.CURS.map(x => `<button type="button" class="chip" data-vcur="${esc(x)}" aria-pressed="${x === c}">${esc(x)}</button>`).join('')}</div></div>
         ${m.budget ? `<button type="button" class="btn subtle" id="vbCancel">${esc(t('cancel'))}</button>` : ''}</div>`;
 }
@@ -2991,7 +2996,7 @@ let h = `<div class="card v-gauge${left < 0 ? ' over' : ''}"><div class="row bet
       <form class="card v-add" id="vAdd"><span class="section-title" style="margin:0">${esc(t('v.b.add'))}</span>
         <div class="chips v-cats">${MO.CATS.map(x => `<button type="button" class="chip" data-vcat="${x.id}" aria-pressed="${x.id === selCat}">${x.e} ${esc(L(x, ''))}</button>`).join('')}</div>
         <input id="vNote" maxlength="40" placeholder="${esc(t('v.b.note'))}" aria-label="${esc(t('v.b.note'))}">
-        <div class="inline-form"><input id="vAmt" type="number" min="0" step="any" inputmode="decimal" placeholder="${esc(t('dep.amount', { c }))}" aria-label="${esc(t('dep.amount', { c }))}" required><button class="btn" type="submit">${esc(t('card.add'))}</button></div>
+        <div class="inline-form"><input id="vAmt" type="text" min="0" step="any" inputmode="decimal" placeholder="${esc(t('dep.amount', { c }))}" aria-label="${esc(t('dep.amount', { c }))}" required><button class="btn" type="submit">${esc(t('card.add'))}</button></div>
         ${m.zero[tk] ? `<p class="ok-txt" style="margin:0">${esc(t('v.b.zeroOk'))}</p>` : !logged ? `<button type="button" class="btn ghost block" id="vZero">✓ ${esc(t('v.b.zero'))}</button>` : ''}</form>`;
 if (spent > 0) {
 const by = MO.CATS.map(x => ({ x, s: r2(wk.filter(y => catOf(y.c) === x).reduce((a, y) => a + y.a, 0)) })).filter(o => o.s > 0).sort((a, b) => b.s - a.s);
@@ -3014,7 +3019,7 @@ m.budget = r2(n); if (!m.since) m.since = today(); S.vaultEdit = false; save(); 
 render(); openVault(); rewardFeedback(before, t('v.b.ok', { a: money(m.budget) }));
 };
 sheet.querySelectorAll('[data-vb]').forEach(b => b.onclick = () => setBudget(+b.dataset.vb));
-const bf = $('#vbForm'); if (bf) bf.onsubmit = e => { e.preventDefault(); setBudget(parseFloat($('#vbIn').value.replace(',', '.'))); };
+const bf = $('#vbForm'); if (bf) bf.onsubmit = e => { e.preventDefault(); setBudget(numVal($('#vbIn').value)); };
 sheet.querySelectorAll('[data-vcur]').forEach(b => b.onclick = () => { m.cur = b.dataset.vcur; save(); SFX.play('select'); vaultRefresh(); });
 const bc = $('#vbCancel'); if (bc) bc.onclick = () => { S.vaultEdit = false; openVault(null, 'close'); };
 const be = $('#vbEdit'); if (be) be.onclick = () => { S.vaultEdit = true; openVault(null, 'open'); };
@@ -3022,7 +3027,7 @@ sheet.querySelectorAll('[data-vcat]').forEach(b => b.onclick = () => { S.vaultCa
 const add = $('#vAdd');
 if (add) add.onsubmit = e => {
 e.preventDefault();
-const a = parseFloat($('#vAmt').value.replace(',', '.'));
+const a = numVal($('#vAmt').value);
 if (!Number.isFinite(a) || a <= 0) { SFX.play('error'); $('#vAmt').focus(); return; }
 const before = ppStats().total, tk = today(), ws = weekStart(), wasOver = spentIn(ws, weekEnd(ws)) > m.budget;
 m.tx.push({ id: uid(), d: tk, a: r2(a), c: MO.CATS.some(x => x.id === S.vaultCat) ? S.vaultCat : MO.CATS[0].id, n: $('#vNote').value.trim().slice(0, 40) });
@@ -3049,7 +3054,7 @@ return `<div class="card v-wish${ripe ? ' ripe' : ''}"><div class="row between">
 }).join('');
 h += `<form class="card v-add" id="vWish"><span class="section-title" style="margin:0">${esc(t('v.w.add'))}</span><p class="muted" style="margin:0">${esc(t('v.w.d'))}</p>
       <input id="vwName" maxlength="40" placeholder="${esc(t('v.w.name'))}" aria-label="${esc(t('v.w.name'))}" required>
-      <div class="inline-form"><input id="vwPrice" type="number" min="0" step="any" inputmode="decimal" placeholder="${esc(t('v.w.price', { c }))}" aria-label="${esc(t('v.w.price', { c }))}" required><button class="btn" type="submit">${IC.lock}${esc(t('v.w.lock'))}</button></div></form>`;
+      <div class="inline-form"><input id="vwPrice" type="text" min="0" step="any" inputmode="decimal" placeholder="${esc(t('v.w.price', { c }))}" aria-label="${esc(t('v.w.price', { c }))}" required><button class="btn" type="submit">${IC.lock}${esc(t('v.w.lock'))}</button></div></form>`;
 if (!waiting.length && !past.length) h += `<p class="muted v-tip">💡 ${esc(t('v.w.none'))}</p>`;
 if (past.length) h += `<div class="card"><span class="section-title" style="margin:0">${esc(t('v.w.hist'))}</span><div class="history">${past.map(w => `<div><span>${w.st === 'skip' ? '🧊' : '🛍️'} ${esc(w.n)} <small class="muted">· ${esc(t(w.st === 'skip' ? 'v.w.hSkip' : 'v.w.hBuy'))}</small></span><b class="num ${w.st === 'skip' ? 'pos' : ''}">${esc(money(w.p))}</b></div>`).join('')}</div></div>`;
 return h;
@@ -3059,7 +3064,7 @@ const m = mon(), find = id => m.wish.find(w => w.id === id);
 const f = $('#vWish');
 if (f) f.onsubmit = e => {
 e.preventDefault();
-const n = $('#vwName').value.trim().slice(0, 40), p = parseFloat($('#vwPrice').value.replace(',', '.'));
+const n = $('#vwName').value.trim().slice(0, 40), p = numVal($('#vwPrice').value);
 if (!n) { SFX.play('error'); $('#vwName').focus(); return; }
 if (!Number.isFinite(p) || p < 0) { SFX.play('error'); $('#vwPrice').focus(); return; }
 m.wish.push({ id: uid(), n, p: r2(p), t0: Date.now(), st: 'wait' });
@@ -3276,11 +3281,11 @@ function openRaise(id) {
 const g = byId(id), o = g && raiseOffer(g); if (!o) return;
 openSheet(`<div class="raise-head"><span class="raise-ico" aria-hidden="true">🚀</span><h2>${esc(t('rs.t'))}</h2></div>
       <p class="muted" style="margin:0">${esc(t(g.type === 'steps' ? 'rs.d.steps' : 'rs.d.target', { from: nf(o.from, 1), unit: o.unit }))}</p>
-      <label class="field" for="rsTo">${esc(t('rs.new'))} (${esc(o.unit)})<input id="rsTo" type="number" inputmode="decimal" step="any" min="${o.from}" value="${o.to}"></label>
+      <label class="field" for="rsTo">${esc(t('rs.new'))} (${esc(o.unit)})<input id="rsTo" type="text" inputmode="decimal" step="any" min="${o.from}" value="${o.to}"></label>
       <div class="grid-2"><button type="button" class="btn subtle" id="rsNo">${esc(t('rs.later'))}</button><button type="button" class="btn" id="rsOk">${esc(t('rs.go'))}</button></div>`, true);
 $('#rsNo').onclick = () => { g.rsNo = today(); save(); closeSheet(); render(); };
 $('#rsOk').onclick = () => {
-const to = parseFloat($('#rsTo').value.replace(',', '.'));
+const to = numVal($('#rsTo').value);
 if (!Number.isFinite(to) || to <= o.from) { SFX.play('error'); $('#rsTo').focus(); return; }
 const title = retitle(g.title, o.from, to);
 if (g.type === 'steps') {
@@ -3845,15 +3850,15 @@ let f = `<label class="field" for="eTitle">${esc(t('f.title'))}<input id="eTitle
       <div class="field">${esc(t('f.emoji'))}<div class="chips">${emo.map(e => `<button type="button" class="chip" data-emoji="${esc(e)}" aria-pressed="${e === g.emoji}">${esc(e)}</button>`).join('')}</div></div>`;
 if (g.type === 'target' || tk) {
 if (tk) f += `<label class="field" for="eHandle">${esc(t('f.handle'))}<input id="eHandle" maxlength="30" value="${esc(g.handle || '')}" autocapitalize="off" spellcheck="false"></label>`;
-f += `<div class="grid-2"><label class="field" for="eStart">${esc(t(tk ? 'f.followers' : 'f.start'))}<input id="eStart" type="number" step="any" inputmode="decimal" value="${esc(val(g.start))}"></label>
-        <label class="field" for="eTarget">${esc(t(tk ? 'f.goalFollowers' : 'f.target'))}<input id="eTarget" type="number" step="any" inputmode="decimal" value="${esc(val(g.target))}"></label></div>
+f += `<div class="grid-2"><label class="field" for="eStart">${esc(t(tk ? 'f.followers' : 'f.start'))}<input id="eStart" type="text" step="any" inputmode="decimal" value="${esc(val(g.start))}"></label>
+        <label class="field" for="eTarget">${esc(t(tk ? 'f.goalFollowers' : 'f.target'))}<input id="eTarget" type="text" step="any" inputmode="decimal" value="${esc(val(g.target))}"></label></div>
         <div class="grid-2">${tk ? '' : `<label class="field" for="eUnit">${esc(t('f.unit'))}<input id="eUnit" maxlength="14" value="${esc(g.unit || '')}"></label>`}
         <label class="field" for="eDeadline">${esc(t('f.deadline'))}<input id="eDeadline" type="date" value="${esc(g.deadline || '')}"></label></div>`;
 }
 if (g.type === 'habit') f += `<div class="field">${esc(t('f.days'))}<div class="chips days" id="eDays">${order.map(d => `<button type="button" class="chip" data-day="${d}" aria-pressed="${g.days.includes(d)}">${wd[d]}</button>`).join('')}</div></div>`;
 if (g.type === 'steps') f += `<label class="field" for="eDaily">${esc(t('f.daily'))}<input id="eDaily" type="number" min="100" max="100000" step="500" inputmode="numeric" value="${g.daily}"></label>`;
-if (g.type === 'save') f += `<div class="grid-2"><label class="field" for="eTarget">${esc(t('f.price', { c: cur() }))}<input id="eTarget" type="number" min="1" step="any" inputmode="decimal" value="${esc(val(g.target))}"></label>
-      <label class="field" for="ePlan">${esc(t('f.plan', { c: cur() }))}<input id="ePlan" type="number" min="0" step="any" inputmode="decimal" value="${esc(val(g.plan || 0))}"></label></div>`;
+if (g.type === 'save') f += `<div class="grid-2"><label class="field" for="eTarget">${esc(t('f.price', { c: cur() }))}<input id="eTarget" type="text" min="1" step="any" inputmode="decimal" value="${esc(val(g.target))}"></label>
+      <label class="field" for="ePlan">${esc(t('f.plan', { c: cur() }))}<input id="ePlan" type="text" min="0" step="any" inputmode="decimal" value="${esc(val(g.plan || 0))}"></label></div>`;
 f += `<label class="field" for="eWhy">${esc(t('f.why'))}<input id="eWhy" maxlength="120" value="${esc(g.why || '')}" placeholder="${esc(t('f.why.ph'))}"></label>
       <p class="muted" id="eErr" role="alert" style="margin:0;color:var(--bad)"></p>
       <button type="button" class="btn block" id="eSave">${esc(t('ed.save'))}</button>`;
@@ -3861,7 +3866,7 @@ openSheet(`<div class="sheet-head"><button type="button" class="icon-btn" id="eB
 $('#eBack').onclick = () => openDetail(g.id);
 sheet.querySelectorAll('[data-emoji]').forEach(b => b.onclick = () => sheet.querySelectorAll('[data-emoji]').forEach(x => x.setAttribute('aria-pressed', String(x === b))));
 sheet.querySelectorAll('#eDays [data-day]').forEach(b => b.onclick = () => b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')));
-const num = id => { const el = $(id); return el ? parseFloat(String(el.value).replace(',', '.')) : NaN; };
+const num = id => { const el = $(id); return el ? numVal(el.value) : NaN; };
 $('#eSave').onclick = () => {
 const title = $('#eTitle').value.trim(), err = $('#eErr'), bad = (k, focus) => { err.textContent = t(k); SFX.play('error'); if (focus) $(focus).focus(); };
 if (!title) return bad('f.required', '#eTitle');
@@ -4012,6 +4017,8 @@ g.innerHTML = `<div class="bg-in"><img src="icons/icon-192.png" alt="" width="84
       <form id="btForm" class="bg-form"><input id="btCode" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="PEAK-BETA-…" aria-label="${esc(t('bt.code'))}"><button class="btn block" type="submit">${esc(t('bt.enter'))}</button></form>
       <p class="bg-err" id="btErr" role="alert"></p></div>`;
 document.body.appendChild(g);
+const wait = LAUNCH_AT - Date.now();
+if (wait < 864e5) setTimeout(() => location.reload(), Math.max(0, wait) + 1500);
 $('#btForm').onsubmit = async e => {
 e.preventDefault(); const v = $('#btCode').value.trim().toUpperCase(); let ok = false;
 try { ok = (await sha256('peakmind:beta:' + v)) === BETA_HASH || (await sha256('peakmind:creator:' + v)) === CREATOR_HASH; } catch (err) {  }
