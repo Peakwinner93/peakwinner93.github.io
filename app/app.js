@@ -466,6 +466,7 @@ function init() {
 if (ctx) return ctx;
 const AC = window.AudioContext || window.webkitAudioContext;
 if (!AC) return null;
+try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {  }
 ctx = new AC();
 const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -20; comp.knee.value = 12; comp.ratio.value = 3.5; comp.attack.value = .004; comp.release.value = .18;
 const tame = ctx.createBiquadFilter(); tame.type = 'highshelf'; tame.frequency.value = 7500; tame.gain.value = -5;
