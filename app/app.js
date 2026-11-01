@@ -4014,14 +4014,15 @@ $('#app').hidden = true;
 const g = document.createElement('div'); g.className = 'beta-gate'; g.setAttribute('role', 'dialog'); g.setAttribute('aria-label', 'PeakMind');
 g.innerHTML = `<div class="bg-in"><img src="icons/icon-192.png" alt="" width="84" height="84"><div class="bg-brand">PEAK<span>MIND</span></div>
       <p class="bg-when">${esc(t('bt.when'))}</p><p class="bg-d">${esc(t('bt.private'))}</p>
-      <form id="btForm" class="bg-form"><input id="btCode" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="PEAK-BETA-…" aria-label="${esc(t('bt.code'))}"><button class="btn block" type="submit">${esc(t('bt.enter'))}</button></form>
+      <form id="btForm" class="bg-form"><input id="btCode" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="PEAK-BETA-…" aria-label="${esc(t('bt.code'))}"><button class="btn block" type="submit">${esc(t('bt.enter'))}</button></form>
       <p class="bg-err" id="btErr" role="alert"></p></div>`;
 document.body.appendChild(g);
 const wait = LAUNCH_AT - Date.now();
 if (wait < 864e5) setTimeout(() => location.reload(), Math.max(0, wait) + 1500);
 $('#btForm').onsubmit = async e => {
 e.preventDefault(); const v = $('#btCode').value.trim().toUpperCase(); let ok = false;
-try { ok = (await sha256('peakmind:beta:' + v)) === BETA_HASH || (await sha256('peakmind:creator:' + v)) === CREATOR_HASH; } catch (err) {  }
+const vb = v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\u2010-\u2015\u2212]/g, '-').replace(/\s+/g, '');
+try { ok = (await sha256('peakmind:beta:' + vb)) === BETA_HASH || (await sha256('peakmind:creator:' + v)) === CREATOR_HASH; } catch (err) {  }
 if (!ok) { $('#btErr').textContent = t('bt.bad'); $('#btCode').select(); return; }
 S.beta = Object.assign({ since: today(), done: {} }, S.beta || {}, { ok: true }); save(); location.reload();
 };

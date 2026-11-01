@@ -1,5 +1,5 @@
 // Service worker : met l'appli en cache pour qu'elle s'ouvre même sans connexion.
-const CACHE = 'peakmind-v34';
+const CACHE = 'peakmind-v35';
 const FONTS = ['chakrapetch-500-latin', 'chakrapetch-500-latin-ext', 'chakrapetch-600-latin', 'chakrapetch-600-latin-ext', 'chakrapetch-700-latin', 'chakrapetch-700-latin-ext',
   'spacegrotesk-latin', 'spacegrotesk-latin-ext'].map(f => `fonts/${f}.woff2`);   // polices intégrées : l'appli garde son style hors ligne dès la 1re visite
 const SHELL = ['./', 'index.html', 'styles.css', 'config.js', 'quests.js', 'money.js', 'app.js', 'manifest.webmanifest',
