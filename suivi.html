@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src https://abacus.jasoncameron.dev; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>PeakMind · Suivi</title>
+<!-- Page de suivi privée (pas de lien depuis le site, pas indexée) : combien de téléphones utilisent PeakMind.
+     Les chiffres viennent du compteur sans compte de l'appli (countOpen dans app.js) : « appareils », « installes », « jour-AAAA-MM-JJ ».
+     Ils se mettent à jour tout seuls toutes les 30 s. -->
+<style>
+  @font-face { font-family: 'Chakra Petch'; font-weight: 700; font-display: swap; src: url('app/fonts/chakrapetch-700-latin.woff2') format('woff2'); }
+  @font-face { font-family: 'Space Grotesk'; font-weight: 300 700; font-display: swap; src: url('app/fonts/spacegrotesk-latin.woff2') format('woff2'); }
+  :root { --bg: #04060d; --card: rgba(255,255,255,.045); --edge: rgba(140,200,255,.16); --ink: #eef4fb; --muted: #98a6ba; --a: #00e5ff; --gold: #ffd36b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(70% 40% at 50% 0%, rgba(0,170,255,.16), transparent 70%), var(--bg); color: var(--ink); font-family: 'Space Grotesk', system-ui, sans-serif; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 32px 16px 48px; }
+  .brand { font-family: 'Chakra Petch', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: .08em; }
+  .brand b { color: var(--a); }
+  h1 { font-family: 'Chakra Petch', sans-serif; font-size: 30px; margin: 22px 0 4px; letter-spacing: .03em; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .big { margin-top: 22px; padding: 26px 22px; border-radius: 22px; background: linear-gradient(180deg, rgba(0,229,255,.12), rgba(0,229,255,.03)); border: 1px solid rgba(0,229,255,.4); text-align: center; }
+  .big .n { font-family: 'Chakra Petch', sans-serif; font-size: 84px; line-height: 1; color: var(--a); text-shadow: 0 0 40px rgba(0,229,255,.5); font-variant-numeric: tabular-nums; }
+  .big .l { margin-top: 8px; font-size: 16px; color: #c9d6e6; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+  .tile { padding: 16px 10px; border-radius: 18px; background: var(--card); border: 1px solid var(--edge); text-align: center; }
+  .tile .n { font-family: 'Chakra Petch', sans-serif; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .tile .l { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+  h2 { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 28px 0 10px; font-weight: 600; }
+  .days { display: grid; gap: 8px; }
+  .day { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 10px; font-size: 14px; }
+  .bar { height: 14px; border-radius: 7px; background: rgba(140,200,255,.12); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--a), #a98bf0); border-radius: 7px; }
+  .day b { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { margin-top: 26px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+  @media (max-width: 360px) { .big .n { font-size: 64px; } .tile .n { font-size: 28px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">PEAK<b>MIND</b></div>
+  <h1>Suivi des joueurs</h1>
+  <div class="muted" id="maj">Chargement…</div>
+
+  <div class="big"><div class="n" id="appareils">–</div><div class="l">téléphones ont ouvert PeakMind</div></div>
+  <div class="grid">
+    <div class="tile"><div class="n" id="installes">–</div><div class="l">installée sur l'écran d'accueil</div></div>
+    <div class="tile"><div class="n" id="auj">–</div><div class="l">joueurs aujourd'hui</div></div>
+    <div class="tile"><div class="n" id="hier">–</div><div class="l">joueurs hier</div></div>
+  </div>
+
+  <h2>Les 7 derniers jours</h2>
+  <div class="days" id="jours"></div>
+
+  <p class="note">Compteur anonyme : chaque téléphone envoie juste « +1 » (aucun nom, aucune donnée). Comptage depuis le 1er novembre au soir :
+    les personnes qui avaient installé l'appli avant sont comptées dès qu'elles la rouvrent. Un même téléphone ne compte qu'une fois
+    (sauf s'il efface les données du navigateur). Mise à jour automatique toutes les 30 secondes.</p>
+</div>
+<script>
+  const API = 'https://abacus.jasoncameron.dev/get/peakwinner93-peakmind/';
+  const dkey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const nf = n => n.toLocaleString('fr-FR');
+  // « Key not found » = encore personne : 0
+  const lire = k => fetch(API + k, { cache: 'no-store' }).then(r => r.ok ? r.json() : { value: 0 }).then(j => j.value || 0).catch(() => null);
+  async function maj() {
+    const jours = [...Array(7)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return d; });
+    const [app, inst, ...parJour] = await Promise.all([lire('appareils'), lire('installes'), ...jours.map(d => lire('jour-' + dkey(d)))]);
+    if (app === null) { document.getElementById('maj').textContent = 'Pas de connexion au compteur, nouvel essai dans 30 s.'; return; }
+    document.getElementById('appareils').textContent = nf(app);
+    document.getElementById('installes').textContent = nf(inst || 0);
+    document.getElementById('auj').textContent = nf(parJour[0] || 0);
+    document.getElementById('hier').textContent = nf(parJour[1] || 0);
+    const max = Math.max(1, ...parJour.map(v => v || 0));
+    document.getElementById('jours').innerHTML = jours.map((d, i) => {
+      const v = parJour[i] || 0, nom = i === 0 ? "Aujourd'hui" : i === 1 ? 'Hier' : d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+      return `<div class="day"><span>${nom}</span><span class="bar"><i style="width:${(v / max * 100).toFixed(1)}%"></i></span><b>${nf(v)}</b></div>`;
+    }).join('');
+    document.getElementById('maj').textContent = 'Mis à jour à ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  maj(); setInterval(maj, 30000);
+</script>
+</body>
+</html>

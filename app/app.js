@@ -1157,7 +1157,7 @@ view.innerHTML = `<h2 style="font-size:1.9rem;text-transform:uppercase">${esc(t(
       <section class="card"><h3>${esc(t('s.install'))}</h3>${standalone() ? `<p class="ok-txt" style="margin:0">${esc(t('in.already'))}</p>`
 : `<ul class="list-plain"><li>${esc(t('s.install.ios'))}</li><li>${esc(t('s.install.android'))}</li></ul><button type="button" class="btn subtle" id="setInstall">📲 ${esc(t(installEvt ? 'in.go' : 'in.how'))}</button>`}</section>
       ${remindCard()}
-      <section class="card"><h3>${esc(t('s.data'))}</h3><p class="muted" style="margin:0">${esc(t(NET.ready() ? 's.privacy.count' : 's.privacy'))}</p>
+      <section class="card"><h3>${esc(t('s.data'))}</h3><p class="muted" style="margin:0">${esc(t('s.privacy.count'))}</p>
         <p class="muted" style="margin:0;font-size:.85rem">💾 ${esc(S.lastExport ? t('s.lastExp', { d: fmtDate(S.lastExport, true) }) : t('s.lastExp.never'))}</p>
         <div class="grid-2"><button type="button" class="btn subtle" id="exp">${esc(t('s.export'))}</button><button type="button" class="btn subtle" id="impBtn">${esc(t('s.import'))}</button></div>
         <input type="file" id="imp" accept="application/json,.json" hidden>
@@ -3564,6 +3564,17 @@ if (!NET.ready() || !S.onboarded || S.pingDay === today() || devHost()) return;
 if (!S.anonId) { S.anonId = (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => (Math.random() * 16 | 0).toString(16))); saveUI(); }
 NET.rpcAnon('pm_ping', { p_id: S.anonId }).then(() => { S.pingDay = today(); saveUI(); }).catch(() => {  });
 }
+const CNT_URL = 'https://abacus.jasoncameron.dev/hit/peakwinner93-peakmind/', CNT_KEY = 'peakmind.cnt';
+function countOpen() {
+if (devHost() || betaOn()) return;
+let c = {}; try { c = JSON.parse(localStorage.getItem(CNT_KEY)) || {}; } catch (e) {  }
+const hit = (k, done) => fetch(CNT_URL + k, { mode: 'cors', cache: 'no-store' }).then(r => {
+if (!r.ok) return; done(); try { localStorage.setItem(CNT_KEY, JSON.stringify(c)); } catch (e) {  }
+}).catch(() => {  });
+if (!c.dev) hit('appareils', () => { c.dev = 1; });
+if (!c.inst && standalone()) hit('installes', () => { c.inst = 1; });
+const d = today(); if (c.day !== d) hit('jour-' + d, () => { c.day = d; });
+}
 Object.assign(T.fr, { 'us.title': 'Joueurs de PeakMind', 'us.loading': 'Chargement…', 'us.off': 'Le compteur s\'allume avec le classement en ligne (Supabase, voir le README).', 'us.err': 'Pas de réseau, ou le serveur ne répond pas.', 'us.total': 'au total', 'us.today': 'aujourd\'hui', 'us.week': 'sur 7 jours', 'us.month': 'sur 30 jours',
 's.privacy.count': 'Tes objectifs et tes progrès restent sur ton téléphone. Seul un compteur anonyme (sans pseudo ni donnée perso) dit combien de personnes utilisent PeakMind. Pense à sauvegarder de temps en temps.' });
 Object.assign(T.en, { 'us.title': 'PeakMind players', 'us.loading': 'Loading…', 'us.off': 'The counter turns on with the online ranking (Supabase, see the README).', 'us.err': 'No network, or the server isn\'t answering.', 'us.total': 'in total', 'us.today': 'today', 'us.week': 'last 7 days', 'us.month': 'last 30 days',
@@ -4150,5 +4161,7 @@ if (S.onboarded && navigator.storage && navigator.storage.persist) navigator.sto
 checkLevelUp(ppStats(), 900);
 if (S.league && S.league.joined) leagueSync(false).catch(() => {});
 setTimeout(pingUsers, 4000);
+setTimeout(countOpen, 2500);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) countOpen(); });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {  });
 })();
