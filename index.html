@@ -100,6 +100,7 @@
   /* Numéro posé à gauche, sans flex : en flex, chaque mot en gras devenait une colonne à part */
   ol.steps li { counter-increment: s; position: relative; min-height: 60px; padding: 14px 16px 14px 60px; border-radius: 16px; background: var(--glass); border: 1px solid var(--edge); }
   ol.steps li::before { content: counter(s); position: absolute; left: 16px; top: 14px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-family: "Chakra Petch"; font-weight: 700; color: #04121c; background: linear-gradient(135deg, var(--a), var(--a2)); }
+  .tip { max-width: 560px; margin: 12px 0 0; padding: 12px 16px; border-radius: 14px; background: rgba(0, 229, 255, .07); border: 1px solid rgba(0, 229, 255, .28); color: #c3d0e0; font-size: .95rem; }
   [hidden] { display: none !important; }
   footer { padding: 40px 0 60px; border-top: 1px solid var(--edge); color: var(--muted); font-size: .9rem; }
   footer .wrap { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
@@ -179,16 +180,18 @@
     <h2 class="reveal">Sur ton écran d'accueil en 3 gestes.</h2>
     <p class="lead reveal">PeakMind s'installe directement depuis ce site, sans passer par un store.<span class="soon"> Disponible le 1er novembre à&nbsp;18&nbsp;h.</span></p>
     <div class="tabs reveal" role="tablist"><button role="tab" aria-selected="true" data-os="ios">iPhone</button><button role="tab" aria-selected="false" data-os="android">Android</button></div>
-    <ol class="steps" id="os-ios">
+    <div id="os-ios"><ol class="steps">
       <li>Ouvre ce site dans <b>Safari</b>, puis touche «&nbsp;Ouvrir l'appli&nbsp;».</li>
       <li>Touche le bouton <b>Partager</b> (le carré avec une flèche).</li>
       <li>Choisis <b>«&nbsp;Sur l'écran d'accueil&nbsp;»</b>, puis «&nbsp;Ajouter&nbsp;».</li>
     </ol>
-    <ol class="steps" id="os-android" hidden>
+    <p class="tip">💾 Installe PeakMind <b>avant de commencer</b> : sur iPhone, ce que tu fais dans Safari ne passe pas dans l'appli de l'écran d'accueil. Tes progrès restent sur ton téléphone&nbsp;: pense à les sauvegarder de temps en temps (Réglages → Tes données).</p></div>
+    <div id="os-android" hidden><ol class="steps">
       <li>Ouvre ce site dans <b>Chrome</b>, puis touche «&nbsp;Ouvrir l'appli&nbsp;».</li>
       <li>Touche le menu <b>⋮</b> en haut à droite.</li>
       <li>Choisis <b>«&nbsp;Installer l'application&nbsp;»</b> (ou «&nbsp;Ajouter à l'écran d'accueil&nbsp;»).</li>
     </ol>
+    <p class="tip">💾 Tes progrès restent sur ton téléphone, dans Chrome. Si tu effaces les données de Chrome ou si tu changes de téléphone, ils partent avec&nbsp;: pense à les sauvegarder de temps en temps (Réglages → Tes données).</p></div>
     <div class="cta live" style="justify-content:flex-start"><a class="btn main" href="app/">Ouvrir PeakMind</a></div>
   </div></section>
 </main>
