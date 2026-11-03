@@ -591,15 +591,51 @@ function openSheet(html, center) {
 runSheetHook();
 SFX.play('open');
 sheet.innerHTML = `<div class="sheet-panel${center ? ' center' : ''}" role="dialog" aria-modal="true">${center ? '' : '<div class="grabber"></div>'}${html}</div>`;
-sheet.hidden = false;
+sheet.hidden = false; lockPage(true);
 const f = sheet.querySelector('input, button'); if (f) f.focus({ preventScroll: true });
 }
 function closeSheet() {
 if (sheetLock) return;
 if (!sheet.hidden) SFX.play('close');
-sheet.hidden = true; sheet.innerHTML = '';
+sheet.hidden = true; sheet.innerHTML = ''; lockPage(false);
 runSheetHook();
 }
+let lockY = 0;
+function lockPage(on) {
+const b = document.body;
+if (on && !b.classList.contains('sheet-open')) { lockY = window.scrollY; b.style.top = -lockY + 'px'; b.classList.add('sheet-open'); }
+else if (!on && b.classList.contains('sheet-open')) { b.classList.remove('sheet-open'); b.style.top = ''; window.scrollTo(0, lockY); }
+}
+let drag = null;
+sheet.addEventListener('touchstart', e => {
+drag = null;
+const panel = sheet.querySelector('.sheet-panel');
+if (!panel || panel.classList.contains('center') || sheetLock || e.touches.length > 1 || !panel.contains(e.target)) return;
+const y = e.touches[0].clientY, grab = y - panel.getBoundingClientRect().top < 44;
+if (!grab) {
+if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+for (let el = e.target; el && el !== sheet; el = el.parentElement) if (el.scrollTop > 0) return;
+}
+drag = { panel, x0: e.touches[0].clientX, y0: y, t0: performance.now(), dy: 0, on: false };
+}, { passive: true });
+sheet.addEventListener('touchmove', e => {
+if (!drag) return;
+const dx = e.touches[0].clientX - drag.x0, dy = e.touches[0].clientY - drag.y0;
+if (!drag.on) {
+if (dy > 8 && dy > Math.abs(dx)) { drag.on = true; drag.panel.style.transition = 'none'; drag.panel.style.animation = 'none'; }
+else { if (dy < -8 || Math.abs(dx) > 8) drag = null; return; }
+}
+e.preventDefault();
+drag.dy = Math.max(0, dy - 8); drag.panel.style.transform = `translateY(${drag.dy}px)`;
+}, { passive: false });
+const dragEnd = () => {
+if (!drag) return; const d = drag; drag = null; if (!d.on) return;
+const fast = d.dy / Math.max(1, performance.now() - d.t0) > .5 && d.dy > 40;
+d.panel.style.transition = 'transform .2s cubic-bezier(.2, .8, .2, 1)';
+if (d.dy > d.panel.offsetHeight * .25 || fast) { d.panel.style.transform = 'translateY(105%)'; setTimeout(() => { if (sheet.contains(d.panel)) closeSheet(); }, 190); }
+else d.panel.style.transform = '';
+};
+sheet.addEventListener('touchend', dragEnd); sheet.addEventListener('touchcancel', dragEnd);
 sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
 function confirmBox(text, okLabel, onOk, danger = true) {
