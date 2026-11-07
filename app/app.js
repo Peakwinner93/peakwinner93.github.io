@@ -4,7 +4,7 @@
 const APP = 'PeakMind';
 const KEY = 'peakmind.v1';
 const OLD_KEY = 'peakwinner.v1';
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 const OFFICIAL_URL = 'https://peakwinner93.github.io/app/';
 (() => {
 if (!OFFICIAL_URL || location.protocol === 'file:') return;
@@ -554,6 +554,7 @@ finish: () => { [784, 988, 1175, 1568].forEach((f, i) => bell({ f, at: i * .1, d
 charge: () => { noise({ dur: 1.05, vol: .03, f: 300, f2: 5000, q: 1.4, attack: .95 }); tone({ f: 110, f2: 440, type: 'sawtooth', dur: 1.05, vol: .022, lp: 1500, attack: .9, room: .15 }); tone({ f: 220, f2: 880, type: 'triangle', dur: 1.05, vol: .018, attack: .9, wet: .3 }); },
 warp: () => { noise({ dur: .6, vol: .045, f: 3000, f2: 200, q: .8 }); tone({ f: 220, f2: 55, dur: .6, vol: .1, room: .2 }); bell({ f: 1568, at: .35, dur: .8, vol: .035, wet: .5 }); },
 quest: () => { noise({ dur: .4, vol: .022, f: 1500, f2: 7000, q: .7 }); bell({ f: 1318.5, dur: 1, vol: .055, wet: .5, pan: -.2 }); bell({ f: 1975.5, at: .15, dur: 1.2, vol: .045, wet: .5, pan: .2 }); tone({ f: 220, at: .05, dur: 1.2, vol: .03, attack: .15, rich: true, room: .3 }); },
+alarm: () => { [0, .2, .4].forEach(a => tone({ f: 988, f2: 740, type: 'square', at: a, dur: .13, vol: .03, lp: 2600, room: .06 })); bell({ f: 1976, at: .62, dur: .9, vol: .04, wet: .45 }); tone({ f: 110, at: .6, dur: .8, vol: .05, room: .2 }); },
 questDone: () => { [988, 1319, 1760].forEach((f, i) => bell({ f, at: i * .07, dur: .45, vol: .045, pan: -.25 + i * .25 })); bell({ f: 2637, at: .22, dur: .9, vol: .03, wet: .5 }); tone({ f: 330, at: .2, dur: .7, vol: .025, attack: .05, rich: true }); },
 coin: () => { tone({ f: 988, type: 'square', dur: .07, vol: .022, lp: 3200, room: .05 }); tone({ f: 1319, type: 'square', at: .07, dur: .3, vol: .024, lp: 3200, wet: .2 }); bell({ f: 2637, at: .08, dur: .5, vol: .022, pan: .2 }); },
 lock: () => { tone({ f: 180, f2: 120, type: 'triangle', dur: .08, vol: .08, lp: 1200, room: .02 }); noise({ at: .06, dur: .08, vol: .03, f: 2500, q: 1.2 }); tone({ f: 740, at: .1, dur: .18, vol: .03, rich: true }); },
@@ -1059,13 +1060,18 @@ const [o, c] = S.lang === 'fr' ? ['« ', ' »'] : ['“', '”'];
 return `<section class="card quote"><span class="section-title" style="margin:0">${esc(t('quote.t'))}</span><p>${o}${esc(q[i])}${c}</p></section>`;
 };
 function renderToday() {
+const top = heroHtml() + betaCard() + newsCard() + urgentCard() + dangerCard() + questsHtml() + guideTip() + installCard() + backupCard();
+const hub = dungeonRow() + weeklyRow() + examRow() + vaultRow();
+const tail = (hub ? `<h2 class="section-title">${esc(t('hub.title'))}</h2><div class="hub">${hub}</div>` : '')
++ `<h2 class="section-title">${esc(t('today.progress'))}</h2>${reportCard()}${climbCard()}${quoteCard()}`;
 if (!S.goals.length) {
-view.innerHTML = heroHtml() + betaCard() + newsCard() + dangerCard() + guideTip() + installCard() + backupCard() + questsHtml() + dungeonCard() + examCard() + vaultCard() + climbCard() + quoteCard() + (suggestions().length
+view.innerHTML = top + (suggestions().length
 ? `<h2 class="section-title">${esc(t('sugg.t'))}</h2><div class="types">${suggestionButtons()}</div><button type="button" class="btn ghost" id="emptyCta">${esc(t('sugg.other'))}</button>`
-: `<div class="empty"><img src="icons/icon-192.png" alt=""><h2>${esc(t('empty.title'))}</h2><p class="muted" style="margin:0;max-width:34ch">${esc(t('empty.text'))}</p><button type="button" class="btn" id="emptyCta">${esc(t('empty.cta'))}</button></div>`);
+: `<div class="empty"><img src="icons/icon-192.png" alt=""><h2>${esc(t('empty.title'))}</h2><p class="muted" style="margin:0;max-width:34ch">${esc(t('empty.text'))}</p><button type="button" class="btn" id="emptyCta">${esc(t('empty.cta'))}</button></div>`) + tail;
 $('#emptyCta').onclick = openNew;
 $('#climbCard').onclick = openClimb;
 bindSuggestions(view); bindQuests(view); bindVaultCard(view); bindExamCard(view); bindDungeonCard(view); bindTodayExtras(view); bindInstall(view); bindBackup(view); bindNews(view); bindBeta(view); maybeSystemPopup();
+const rp0 = $('#rpOpenT'); if (rp0) rp0.onclick = () => openReport();
 return;
 }
 const dow = new Date().getDay();
@@ -1074,15 +1080,50 @@ const quits = S.goals.filter(g => g.type === 'quit');
 const nums = S.goals.filter(g => (g.type === 'target' || g.type === 'tiktok') && !g.arch);
 const steps = S.goals.filter(g => g.type === 'steps');
 const saves = S.goals.filter(g => g.type === 'save');
-let html = heroHtml() + betaCard() + newsCard() + dangerCard() + guideTip() + installCard() + backupCard() + reportCard() + questsHtml() + dungeonCard() + examCard() + vaultCard() + climbCard() + quoteCard();
-if (S.goals.some(g => g.type === 'habit')) html += `<h2 class="section-title">${esc(t('today.habits'))}</h2><div class="stack">${habits.length ? habits.map(habitCard).join('') : `<p class="muted" style="margin:0">${esc(t('today.rest'))}</p>`}</div>`;
-html += `<h2 class="section-title">${esc(t('today.activity'))}</h2><div class="stack">${steps.map(stepsCard).join('')}${runCard()}</div>`;
-if (quits.length) html += `<h2 class="section-title">${esc(t('today.quits'))}</h2><div class="stack">${quits.map(quitCard).join('')}</div>`;
-if (nums.length) html += `<h2 class="section-title">${esc(t('today.targets'))}</h2><div class="stack">${nums.map(numberCard).join('')}</div>`;
-if (saves.length) html += `<h2 class="section-title">${esc(t('today.saves'))}</h2><div class="stack">${saves.map(saveCard).join('')}</div>`;
-view.innerHTML = html;
+let mine = habits.map(habitCard).join('');
+if (!habits.length && S.goals.some(g => g.type === 'habit')) mine += `<p class="muted" style="margin:0">${esc(t('today.rest'))}</p>`;
+mine += steps.map(stepsCard).join('') + quits.map(quitCard).join('') + nums.map(numberCard).join('') + saves.map(saveCard).join('') + runCard();
+view.innerHTML = top + `<h2 class="section-title">${esc(t('today.mine'))}</h2><div class="stack">${mine}</div>` + tail;
 bindCards(); bindQuests(view); bindVaultCard(view); bindExamCard(view); bindDungeonCard(view); bindTodayExtras(view); bindInstall(view); bindBackup(view); bindNews(view); bindBeta(view); maybeSystemPopup();
 const rpb = $('#rpOpenT'); if (rpb) rpb.onclick = () => openReport();
+}
+function dungeonRow() {
+const dg = dgNow(); if (!S.onboarded || !dg) return '';
+const f = dgFloor(), dt = dgDoneToday(dg), col = dgCol(dg);
+const status = dg.cleared ? t('dg.cleared') : (dt ? t('dg.tomorrow') : f && f.boss ? t('dg.bossReady') : t('dg.ready', { n: dg.floors.indexOf(f) + 1 })) + ' · ' + dgCloses(dg);
+return `<button type="button" class="type hub-row dg-row${dg.cleared ? ' cleared' : ''}" id="dgCard" style="--g1:${col[0]};--g2:${col[1]}">
+      <div class="emoji hub-ico" aria-hidden="true">🌀</div>
+      <div class="hub-txt"><b>${esc(t('hub.dg'))} · ${esc(dgName(dg))}</b><small>${esc(t('dg.rank', { r: dgRankName(dg) }))}</small>
+        <div class="dg-nodes">${dg.floors.map(x => `<i class="${x.done ? 'on' : ''}${x.boss ? ' boss' : ''}${x === f && !dt && !dg.cleared ? ' cur' : ''}"></i>`).join('')}</div>
+        <small class="${dg.cleared ? 'ok-txt' : 'muted'}">${esc(status)}</small></div>
+      <span class="vault-go" aria-hidden="true">›</span></button>`;
+}
+function weeklyRow() {
+const w = S.onboarded && qs().week; if (!w) return '';
+const wtp = Q.WEEKLY.find(x => x.id === w.t), wp = Math.min(w.n, weeklyProgress());
+let wTitle = wtp ? (S.lang === 'en' ? wtp.en : wtp.fr).replace('{n}', nf(w.n)).replace('{mn}', money(w.n)) : '';
+if (w.n === 1) wTitle = wTitle.replace(/(\b1[\s ]+(?:focus[\s ]+)?)(\p{L}+?)s(?!\p{L})/u, '$1$2');
+const prog = w.t === 'w_save' ? `${money(wp)} / ${money(w.n)}` : `${nf(wp, w.t === 'w_run' ? 1 : 0)} / ${nf(w.n)}`;
+return `<div class="type hub-row week-row${w.done ? ' done' : ''}">
+      <div class="emoji hub-ico" aria-hidden="true">🏆</div>
+      <div class="hub-txt"><b>${esc(t('q.week'))}</b><small>${esc(wTitle)}</small>
+        <div class="bar thin${w.done ? ' good' : ''}"><i style="width:${(wp / Math.max(1, w.n) * 100).toFixed(1)}%"></i></div>
+        <small class="${w.done ? 'ok-txt' : 'muted'} num">${esc(prog)} · ${esc(w.done ? t('q.week.ok', { n: QXP.week }) : t('q.week.left', { n: QXP.week }))}</small></div></div>`;
+}
+function examRow() {
+const e = examsAhead().find(x => examDays(x) <= 14); if (!S.onboarded || !e) return '';
+const n = examDays(e);
+return `<button type="button" class="type hub-row" id="examCard"><div class="emoji hub-ico" aria-hidden="true">🎓</div>
+      <div class="hub-txt"><b>${esc(t('ex.card'))} · ${esc(n === 0 ? t('ex.jday') : t('ex.in', { n }))}</b><small>${esc(e.n)} · ${esc(t('ex.rev', { n: e.rev || 0 }))}</small></div>
+      <span class="vault-go" aria-hidden="true">›</span></button>`;
+}
+function vaultRow() {
+if (!S.onboarded || !vaultUsed() || !featOn('vault')) return '';
+const v = vaultSummary();
+return `<button type="button" class="type hub-row" id="vaultCard"><div class="emoji hub-ico vault-ico">${IC.vault}</div>
+      <div class="hub-txt"><b>${esc(t('v.title'))}</b><small class="num">${esc(money(v.jars))} ${esc(t('v.s.jars'))}${v.left != null ? ' · ' + esc(money(v.left)) + ' ' + esc(t('v.s.left')) : ''}</small>
+        ${v.ripe ? `<small class="hub-alert">⏰ ${esc(t('v.ripe', { n: v.ripe }))}</small>` : ''}</div>
+      <span class="vault-go" aria-hidden="true">›</span></button>`;
 }
 function renderGoals() {
 let html = `<div class="row between"><h2 style="font-size:1.9rem;text-transform:uppercase">${esc(t('tab.goals'))}</h2><button type="button" class="btn" id="goalsNew">+ ${esc(t('new.title'))}</button></div>`;
@@ -1686,7 +1727,8 @@ markActivity(); save(); checkBadges(); closeSheet(); render();
 rewardFeedback(before, t('run.saved', { km: nf(km, 2) }));
 };
 }
-const PP = { habit: 10, entry: 10, clean: 5, steps: 10, run: 10, log: 5, wish: 10, lesson: 15, badge: 50, cap: 100 };
+const PP = { habit: 10, entry: 10, clean: 5, steps: 10, run: 10, log: 5, wish: 10, lesson: 15, badge: 50, cap: 150 };
+const CAP_FROM = '2026-11-07', capOn = k => k >= CAP_FROM ? PP.cap : 100;
 const MAX_LVL = 100;
 const xpForLevel = n => Math.round(100 * (n - 1) + 2.5 * (n - 1) ** 2);
 const levelOf = xp => { let n = 1; while (n < MAX_LVL && xp >= xpForLevel(n + 1)) n++; return n; };
@@ -1801,12 +1843,12 @@ for (const k of new Set((S.runs || []).filter(r => r.km >= 1).map(r => r.d))) if
 const qq = S.quests || {};
 for (const k in qq.log || {}) {
 if (k > tk) continue;
-const e = qq.log[k], x = (e.d || []).reduce((s, d) => s + (d.xp || 0), 0) + (e.b || 0);
+const e = qq.log[k], x = (e.d || []).reduce((s, d) => s + (d.xp || 0), 0) + (e.b || 0) + (e.u || []).reduce((s, d) => s + (d.xp || 0), 0);
 if (x > 0) add(k, x);
 }
 for (const dg of S.dg || []) for (const f of dg.floors || []) if (f.done && f.done <= tk) add(f.done, f.xp || 0);
 const days = {};
-for (const k in act) days[k] = Math.min(PP.cap, act[k]);
+for (const k in act) days[k] = Math.min(capOn(k), act[k]);
 for (const b of BADGES) { const k = S.badges[b.id]; if (k) days[k] = (days[k] || 0) + PP.badge; }
 for (const k of Object.values(qq.wdone || {})) if (k <= tk) days[k] = (days[k] || 0) + QXP.week;
 for (const dg of S.dg || []) if (dg.cleared && dg.cleared <= tk) days[dg.cleared] = (days[dg.cleared] || 0) + DG.clear;
@@ -2122,8 +2164,8 @@ S.goals.push(g); markActivity(); save(); closeSheet(); S.tab = 'today'; checkBad
 rewardFeedback(before, '🚩 ' + title);
 };
 }
-const Q = window.PM_QUESTS || { BANK: [], TUTO: [], COACH: {}, WEEKLY: [], SUBJECTS: [], LANGS: [], BEDTIME: { fr: [], en: [] }, DUNGEONS: [], BOSSES: [], BOSS: [], CATS: [] };
-const QXP = { 1: 10, 2: 15, 3: 20, trial: 25, bonus: 10, week: 50 };
+const Q = window.PM_QUESTS || { BANK: [], TUTO: [], COACH: {}, WEEKLY: [], SUBJECTS: [], LANGS: [], BEDTIME: { fr: [], en: [] }, DUNGEONS: [], BOSSES: [], BOSS: [], URGENT: [], CATS: [] };
+const QXP = { 1: 10, 2: 15, 3: 20, trial: 25, bonus: 10, week: 50, urg: 20 };
 const QICON = { sport: '💪', study: '📚', health: '🌙', social: '💬', quit: '🛑', money: '💰', mind: '🧠', tuto: '🧭', coach: '🎯' };
 const qIcon = it => it.coach === 'redeem' ? '🔥' : it.ex ? '🎓' : QICON[it.c] || '✦';
 Object.assign(T.fr, {
@@ -2133,13 +2175,13 @@ Object.assign(T.fr, {
 'q.diff1': 'Facile', 'q.diff2': 'Normal', 'q.diff3': 'Difficile', 'q.trial': 'Épreuve de rang',
 'q.bonus': '+{n} XP bonus si tu finis les 3', 'q.bonus.ok': 'Journée parfaite · +{n} XP bonus', 'q.count': '{d}/{n}',
 'q.why': 'Choisies pour toi · difficulté {t}/5', 'q.why.up': 'Difficulté {t}/5 : elle monte, tu réussis {p} % de tes quêtes', 'q.why.down': 'Difficulté {t}/5 : allégée pour t\'aider à reprendre le rythme',
-'q.near': 'Plus que {n} XP avant le niveau {l} : une quête et c\'est bon !', 'q.complete': 'Quête accomplie · +{n} XP', 'q.complete.cap': 'Quête accomplie · limite de 100 XP atteinte aujourd\'hui', 'q.undone': 'Quête remise à faire',
+'q.near': 'Plus que {n} XP avant le niveau {l} : une quête et c\'est bon !', 'q.complete': 'Quête accomplie · +{n} XP', 'q.complete.cap': 'Quête accomplie · limite d\'XP du jour atteinte', 'q.undone': 'Quête remise à faire',
 'q.week.done': 'Défi de la semaine réussi ! +{n} XP', 'q.week.left': 'jusqu\'à dimanche soir · +{n} XP', 'q.week.ok': 'Réussi · +{n} XP',
 'q.focus': 'Mode focus', 'q.focus.d': 'Téléphone de côté, une seule tâche. Chaque session compte pour le défi focus.', 'q.focus.done': 'Session focus terminée. Bien joué !', 'q.focus.today': '{n} session(s) aujourd\'hui',
 'q.timer.pause': 'Pause', 'q.timer.go': 'Reprendre', 'q.timer.start': 'Démarrer', 'q.timer.stop': 'Abandonner', 'q.timer.stop.q': 'Arrêter le minuteur ? La quête ne sera pas validée.',
 'q.timer.bg': 'Tu peux fermer cette fenêtre : le minuteur continue.', 'q.timer.busy': 'Un minuteur est déjà en cours.',
 'q.sys': 'SYSTÈME', 'q.sys.new': 'Nouvelles quêtes disponibles', 'q.sys.d': 'Termine-les avant minuit pour gagner leur XP.', 'q.sys.ok': 'Accepter', 'q.lost': 'objectif supprimé : change cette quête',
-'q.cat.sport': 'Sport', 'q.cat.study': 'Études', 'q.cat.health': 'Santé', 'q.cat.social': 'Social', 'q.cat.quit': 'Arrêter', 'q.cat.money': 'Argent', 'q.cat.mind': 'Esprit', 'q.cat.tuto': 'Découverte', 'q.cat.coach': 'Coach',
+'q.cat.sport': 'Sport', 'q.cat.study': 'Apprendre', 'q.cat.health': 'Santé', 'q.cat.social': 'Social', 'q.cat.quit': 'Arrêter', 'q.cat.money': 'Argent', 'q.cat.mind': 'Esprit', 'q.cat.tuto': 'Découverte', 'q.cat.coach': 'Coach',
 'b.q1': 'Aventurier', 'b.q1.d': 'Ta première quête', 'b.q50': 'Chasseur', 'b.q50.d': '50 quêtes terminées', 'b.qperfect7': 'Sans faute', 'b.qperfect7.d': '7 journées de quêtes parfaites'
 });
 Object.assign(T.en, {
@@ -2149,13 +2191,13 @@ Object.assign(T.en, {
 'q.diff1': 'Easy', 'q.diff2': 'Normal', 'q.diff3': 'Hard', 'q.trial': 'Rank trial',
 'q.bonus': '+{n} bonus XP if you finish all 3', 'q.bonus.ok': 'Perfect day · +{n} bonus XP', 'q.count': '{d}/{n}',
 'q.why': 'Picked for you · difficulty {t}/5', 'q.why.up': 'Difficulty {t}/5: going up, you complete {p}% of your quests', 'q.why.down': 'Difficulty {t}/5: eased to help you get back on track',
-'q.near': 'Only {n} XP to level {l}: one quest and you\'re there!', 'q.complete': 'Quest complete · +{n} XP', 'q.complete.cap': 'Quest complete · 100 XP daily limit reached', 'q.undone': 'Quest back to do',
+'q.near': 'Only {n} XP to level {l}: one quest and you\'re there!', 'q.complete': 'Quest complete · +{n} XP', 'q.complete.cap': 'Quest complete · daily XP limit reached', 'q.undone': 'Quest back to do',
 'q.week.done': 'Weekly challenge complete! +{n} XP', 'q.week.left': 'until Sunday night · +{n} XP', 'q.week.ok': 'Done · +{n} XP',
 'q.focus': 'Focus mode', 'q.focus.d': 'Phone away, one task only. Every session counts toward the focus challenge.', 'q.focus.done': 'Focus session done. Nice work!', 'q.focus.today': '{n} session(s) today',
 'q.timer.pause': 'Pause', 'q.timer.go': 'Resume', 'q.timer.start': 'Start', 'q.timer.stop': 'Give up', 'q.timer.stop.q': 'Stop the timer? The quest won\'t be completed.',
 'q.timer.bg': 'You can close this window: the timer keeps running.', 'q.timer.busy': 'A timer is already running.',
 'q.sys': 'SYSTEM', 'q.sys.new': 'New quests available', 'q.sys.d': 'Finish them before midnight to earn their XP.', 'q.sys.ok': 'Accept', 'q.lost': 'goal deleted: swap this quest',
-'q.cat.sport': 'Sport', 'q.cat.study': 'Study', 'q.cat.health': 'Health', 'q.cat.social': 'Social', 'q.cat.quit': 'Quit', 'q.cat.money': 'Money', 'q.cat.mind': 'Mind', 'q.cat.tuto': 'Discovery', 'q.cat.coach': 'Coach',
+'q.cat.sport': 'Sport', 'q.cat.study': 'Learn', 'q.cat.health': 'Health', 'q.cat.social': 'Social', 'q.cat.quit': 'Quit', 'q.cat.money': 'Money', 'q.cat.mind': 'Mind', 'q.cat.tuto': 'Discovery', 'q.cat.coach': 'Coach',
 'b.q1': 'Adventurer', 'b.q1.d': 'Your first quest', 'b.q50': 'Hunter', 'b.q50.d': '50 quests completed', 'b.qperfect7': 'Flawless', 'b.qperfect7.d': '7 perfect quest days'
 });
 const hashStr = s => { let h = 1779033703 ^ s.length; for (let i = 0; i < s.length; i++) { h = Math.imul(h ^ s.charCodeAt(i), 3432918353); h = h << 13 | h >>> 19; } return h >>> 0; };
@@ -2175,7 +2217,7 @@ const st = ppStats(), ints = new Set(S.interests || []);
 const habits = S.goals.filter(g => g.type === 'habit'), hasSteps = S.goals.some(g => g.type === 'steps');
 return { st, lvl: st.level, ints, habits, hasSteps,
 need: { steps: hasSteps, habit: habits.length > 0, creator: ints.has('social') || S.goals.some(g => g.type === 'tiktok'),
-sportish: ints.has('sport') || (S.runs || []).length > 0, study: ints.has('study') || !ints.size,
+sportish: ints.has('sport') || (S.runs || []).length > 0, study: ints.has('study') || !ints.size, school: ints.has('study'),
 saver: S.goals.some(g => g.type === 'save' && pct(g) < 1), nosave: !S.goals.some(g => g.type === 'save'),
 nobudget: !mon().budget, lessons: MO.LESSONS.some(l => !mon().lessons[l.id]) } };
 }
@@ -2192,15 +2234,16 @@ else if (r < .4 || (prev < 0 && r < .55)) adj = -1;
 }
 return { tier: Math.max(1, Math.min(5, base + adj)), adj, rate: a ? d / a : null };
 }
+const CAT_BASE = { sport: .9, mind: .9, health: .6, study: .5, social: .3, quit: .3, money: .2 };
 function catWeights(ctx) {
 const dow = new Date().getDay(), w = {}, none = !ctx.ints.size;
-for (const c of Q.CATS) w[c] = none ? (['sport', 'study', 'health', 'mind'].includes(c) ? .8 : .25) : (ctx.ints.has(c) ? 1 : .12);
-w.mind = Math.max(w.mind, .55);
+for (const c of Q.CATS) w[c] = none ? CAT_BASE[c] || .2 : (ctx.ints.has(c) ? 1 : (CAT_BASE[c] || .2) * .5);
+w.sport = Math.max(w.sport, .6); w.mind = Math.max(w.mind, .7); w.health = Math.max(w.health, .35);
 if (ctx.hasSteps) w.sport = Math.max(w.sport, .7);
 if (S.goals.some(g => g.type === 'quit')) w.quit = Math.max(w.quit, .8);
 if (ctx.need.creator) w.social = Math.max(w.social, .8);
 if (ctx.need.saver || mon().budget) w.money = Math.max(w.money, .6);
-if (dow >= 1 && dow <= 5) w.study *= 1.4;
+if (ctx.need.school && dow >= 1 && dow <= 5) w.study *= 1.3;
 if (dow === 6) { w.study *= .5; w.sport *= 1.3; }
 if (dow === 0) { w.mind *= 1.3; w.health *= 1.1; }
 return w;
@@ -2390,7 +2433,7 @@ function weeklyProgress() {
 const q = qs(), w = q.week; if (!w) return 0;
 const ws = w.start, tk = today(), inWeek = k => k >= ws && k <= tk;
 switch (w.t) {
-case 'w_quests': return Object.keys(q.log).filter(inWeek).reduce((s, k) => s + (q.log[k].d || []).length, 0);
+case 'w_quests': return Object.keys(q.log).filter(inWeek).reduce((s, k) => s + (q.log[k].d || []).length + (q.log[k].u || []).length, 0);
 case 'w_perfect': return Object.keys(q.log).filter(k => inWeek(k) && q.log[k].b).length;
 case 'w_xp': return ppStats().week - (w.done ? QXP.week : 0);
 case 'w_habits': return S.goals.filter(g => g.type === 'habit').reduce((s, g) => s + Object.keys(g.checks).filter(k => g.checks[k] && inWeek(k)).length, 0);
@@ -2404,7 +2447,7 @@ return 0;
 }
 function questsTick() {
 if (!S.onboarded) return;
-ensureQuests(); ensureWeekly(); dungeonTick();
+ensureQuests(); ensureWeekly(); dungeonTick(); if (urgOn()) ensureUrgent();
 const q = qs(); let gained = false;
 for (const it of q.list || []) {
 if (it.done || it.k !== 'a') continue;
@@ -2502,9 +2545,6 @@ const q = qs(), list = q.list || [], d = list.filter(x => x.done).length, e = q.
 const st = ppStats(), { tier, adj, rate } = q.tier || questTier(st.level);
 const why = adj > 0 ? t('q.why.up', { t: tier, p: Math.round(rate * 100) }) : adj < 0 ? t('q.why.down', { t: tier }) : t('q.why', { t: tier });
 const gap = st.to - st.total, near = !st.max && gap > 0 && gap <= 45 && d < list.length;
-const w = q.week, wtp = w && Q.WEEKLY.find(x => x.id === w.t), wp = w ? Math.min(w.n, weeklyProgress()) : 0;
-let wTitle = wtp ? (S.lang === 'en' ? wtp.en : wtp.fr).replace('{n}', nf(w.n)).replace('{mn}', money(w.n)) : '';
-if (w && w.n === 1) wTitle = wTitle.replace(/(\b1[\s ]+(?:focus[\s ]+)?)(\p{L}+?)s(?!\p{L})/u, '$1$2');
 return `<section class="card quests">
       <div class="row between"><span class="section-title" style="margin:0">${esc(t('q.title'))}</span><span class="q-count num">${esc(t('q.count', { d, n: list.length }))}</span></div>
       <p class="muted q-why">${esc(why)}</p>
@@ -2512,9 +2552,6 @@ return `<section class="card quests">
       <div class="q-foot"><span class="${e.b ? 'ok-txt' : 'muted'}">${esc(e.b ? t('q.bonus.ok', { n: e.b }) : t('q.bonus', { n: QXP.bonus }))}</span>
         <button type="button" class="btn subtle q-focus" id="qFocus">⏱ ${esc(q.timer && q.timer.qid === 'free' ? t('q.running', { t: mmss(Math.ceil(timerLeft(q.timer))) }) : t('q.focus'))}</button></div>
       ${near ? `<p class="q-near">${esc(t('q.near', { n: nf(gap), l: st.level + 1 }))}</p>` : ''}
-      ${w ? `<div class="q-week${w.done ? ' done' : ''}"><div class="row between"><span class="section-title" style="margin:0">${esc(t('q.week'))}</span><span class="num muted">${w.t === 'w_save' ? `${esc(money(wp))} / ${esc(money(w.n))}` : `${nf(wp, w.t === 'w_run' ? 1 : 0)} / ${nf(w.n)}`}</span></div>
-        <b>${esc(wTitle)}</b><div class="bar${w.done ? ' good' : ''}"><i style="width:${(wp / Math.max(1, w.n) * 100).toFixed(1)}%"></i></div>
-        <small class="${w.done ? 'ok-txt' : 'muted'}">${esc(w.done ? t('q.week.ok', { n: QXP.week }) : t('q.week.left', { n: QXP.week }))}</small></div>` : ''}
     </section>`;
 }
 function bindQuests(root = view) {
@@ -2536,10 +2573,12 @@ else if (it.auto === 'avatar') { S.tab = 'profile'; S.profTab = 'avatars'; save(
 });
 root.querySelectorAll('[data-qvault]').forEach(b => b.onclick = () => openVault(b.dataset.qvault));
 const fb = root.querySelector('#qFocus'); if (fb) fb.onclick = openFocus;
+root.querySelectorAll('[data-udone]').forEach(b => b.onclick = () => { if (completeUrgent(b.dataset.udone)) { render(); checkLevelUp(ppStats(), 700); } });
 }
 function maybeSystemPopup() {
 const q = qs(), tk = today();
-if (!S.onboarded || q.seen === tk || S.tab !== 'today' || !sheet.hidden || !(q.list || []).length) return;
+if (!S.onboarded || S.tab !== 'today' || !sheet.hidden) return;
+if (q.seen === tk || !(q.list || []).length) { maybeUrgentPopup(); return; }
 setTimeout(() => {
 if (q.seen === tk || !sheet.hidden || S.tab !== 'today') return;
 q.seen = tk; save();
@@ -2550,7 +2589,7 @@ openSheet(`<div class="sys-win"><div class="sys-head"><span class="sys-ico">!</s
         ${unlockLines()}${dgNewLine()}
         <p class="muted" style="margin:0">${esc(t('q.sys.d'))}</p>
         <button type="button" class="btn block" id="sysOk">${esc(t('q.sys.ok'))}</button></div>`, true);
-$('#sysOk').onclick = () => { SFX.play('select'); closeSheet(); };
+$('#sysOk').onclick = () => { SFX.play('select'); closeSheet(); setTimeout(maybeUrgentPopup, 450); };
 }, 650);
 }
 setInterval(() => {
@@ -2559,6 +2598,114 @@ if (q.timer.pause == null && Date.now() >= q.timer.end && sheet.hidden) { timerF
 document.querySelectorAll(`[data-qtimer="${q.timer.qid}"]`).forEach(b => { b.textContent = '⏱ ' + t('q.running', { t: mmss(Math.ceil(timerLeft(q.timer))) }); });
 if (q.timer.qid === 'free') { const fb = $('#qFocus'); if (fb) fb.textContent = '⏱ ' + t('q.running', { t: mmss(Math.ceil(timerLeft(q.timer))) }); }
 }, 1000);
+const URG = { len: 2 * 3600e3, slots: [[8, 8.5], [12, 12.5], [16, 16.5], [20, 20.5]] };
+const urgOn = () => !!S.onboarded && featOn('urgent');
+function ensureUrgent() {
+const q = qs(), tk = today();
+if (q.urg && q.urg.day === tk) return q.urg;
+const rnd = rngOf(tk + '|urg|' + (S.name || '')), i = Math.max(0, Math.min(4, questTier(ppStats().level).tier - 1));
+const d = parseKey(tk), used = new Set(), list = [];
+URG.slots.forEach(([a, b], si) => {
+const pool = (Q.URGENT || []).filter(x => !used.has(x.id) && (!x.sl || x.sl.includes(si)));
+if (!pool.length) return;
+const tp = pickW(rnd, pool, x => x.w || 1); used.add(tp.id);
+const m = Math.round((a + rnd() * (b - a)) * 12) * 5;
+const st = new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(m / 60), m % 60).getTime();
+list.push({ id: uid(), t: tp.id, c: tp.c, n: tp.n ? tp.n[i] : undefined, si, s: st, e: st + URG.len });
+});
+q.urg = { day: tk, list }; save();
+return q.urg;
+}
+const urgState = (it, now = Date.now()) => it.done ? 'done' : now < it.s ? 'wait' : now < it.e ? 'live' : 'miss';
+function urgText(it) {
+const tp = (Q.URGENT || []).find(x => x.id === it.t); if (!tp) return { title: '', tip: '' };
+const en = S.lang === 'en', fill = x => String(x || '').replace('{n}', nf(it.n ?? 0));
+return { title: fill(en ? tp.en : tp.fr), tip: fill(en ? tp.te : tp.tf) };
+}
+const hhmm = h => { const m = Math.round(h * 60), hh = Math.floor(m / 60), mm = m % 60;
+return S.lang === 'en' ? `${(hh + 11) % 12 + 1}${mm ? ':' + String(mm).padStart(2, '0') : ''} ${hh >= 12 ? 'pm' : 'am'}` : `${hh} h${mm ? ' ' + String(mm).padStart(2, '0') : ''}`; };
+const hms = ms => { const x = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(x / 3600)}:${String(Math.floor(x / 60) % 60).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
+function completeUrgent(id) {
+const q = qs(), u = ensureUrgent(), it = u.list.find(x => x.id === id);
+if (!it || it.done) return false;
+if (urgState(it) !== 'live') { SFX.play('error'); toast(t('u.late')); render(); return false; }
+const before = ppStats().total;
+it.done = Date.now();
+const e = q.log[u.day] || (q.log[u.day] = { a: (q.list || []).length, d: [] });
+(e.u || (e.u = [])).push({ id: it.t, c: it.c, xp: QXP.urg });
+markActivity(); save(); checkBadges();
+SFX.play('questDone');
+const gain = ppStats().total - before;
+floatXP(gain); buzz([14, 50, 24]);
+toast(`⚡ ${gain > 0 ? t('u.complete', { n: gain }) : t('u.complete.cap')}`);
+scheduleSync();
+return true;
+}
+function urgentCard() {
+if (!urgOn()) return '';
+const u = ensureUrgent(), now = Date.now(), live = u.list.find(x => urgState(x, now) === 'live');
+const dots = `<span class="u-dots" aria-hidden="true">${u.list.map(x => `<i class="${urgState(x, now)}"></i>`).join('')}</span>`;
+if (live) {
+const { title, tip } = urgText(live), left = live.e - now;
+return `<section class="card urg-card live" id="urgCard">
+        <div class="urg-head"><span class="urg-badge"><span class="urg-ico" aria-hidden="true">!</span>${esc(t('u.title'))}</span>${dots}</div>
+        <div class="urg-main"><div class="q-ico" aria-hidden="true">${QICON[live.c] || '⚡'}</div><div class="q-body"><b>${esc(title)}</b><small>${esc(tip)}</small></div></div>
+        <div class="urg-time"><span>${esc(t('u.left'))}</span><b class="num" data-urg-left="${live.id}">${hms(left)}</b></div>
+        <div class="bar urg-bar"><i data-urg-bar="${live.id}" style="width:${(left / URG.len * 100).toFixed(2)}%"></i></div>
+        <div class="urg-foot"><span class="q-xp num">+${QXP.urg} XP</span><button type="button" class="btn urg-btn" data-udone="${live.id}">${checkSvg}${esc(t('u.done'))}</button></div></section>`;
+}
+const next = u.list.find(x => urgState(x, now) === 'wait'), past = u.list.filter(x => urgState(x, now) !== 'wait'), last = past[past.length - 1];
+const sl = next ? URG.slots[next.si] : null;
+return `<section class="card urg-card idle" id="urgCard">
+      <div class="urg-head"><span class="urg-badge idle">⏳ ${esc(t('u.title'))}</span>${dots}</div>
+      <p class="urg-next">${esc(next ? t('u.next', { a: hhmm(sl[0]), b: hhmm(sl[1]) }) : t('u.none', { a: hhmm(URG.slots[0][0]) }))}</p>
+      ${last ? `<small class="${last.done ? 'ok-txt' : 'urg-miss'}">${esc(last.done ? t('u.last.ok', { n: QXP.urg }) : t('u.last.miss'))}</small>` : `<small class="muted">${esc(t('u.how'))}</small>`}</section>`;
+}
+function maybeUrgentPopup() {
+if (!urgOn() || S.tab !== 'today' || !sheet.hidden) return;
+const live = ensureUrgent().list.find(x => urgState(x) === 'live' && !x.seen); if (!live) return;
+setTimeout(() => {
+if (!sheet.hidden || S.tab !== 'today' || live.seen || urgState(live) !== 'live') return;
+live.seen = true; save();
+SFX.play('alarm'); buzz([60, 40, 60, 40, 120]);
+const { title, tip } = urgText(live);
+openSheet(`<div class="sys-win urg-win"><div class="sys-head"><span class="sys-ico">!</span><b>${esc(t('q.sys'))}</b></div>
+        <h2 class="urg-pop">${esc(t('u.pop'))}</h2>
+        <div class="urg-main"><div class="q-ico" aria-hidden="true">${QICON[live.c] || '⚡'}</div><div class="q-body"><b>${esc(title)}</b><small>${esc(tip)}</small></div></div>
+        <div class="urg-time"><span>${esc(t('u.left'))}</span><b class="num" data-urg-left="${live.id}">${hms(live.e - Date.now())}</b></div>
+        <p class="muted" style="margin:0">${esc(t('u.pop.d', { n: QXP.urg }))}</p>
+        <button type="button" class="btn block" id="urgOk">${esc(t('u.ok'))}</button></div>`, true);
+$('#urgOk').onclick = () => { SFX.play('select'); closeSheet(); };
+}, 650);
+}
+let urgSig = '';
+setInterval(() => {
+const u = S.quests && S.quests.urg; if (!u || !urgOn()) return;
+const now = Date.now();
+document.querySelectorAll('[data-urg-left]').forEach(el => { const it = u.list.find(x => x.id === el.dataset.urgLeft); if (it) el.textContent = hms(it.e - now); });
+document.querySelectorAll('[data-urg-bar]').forEach(el => { const it = u.list.find(x => x.id === el.dataset.urgBar); if (it) el.style.width = (Math.max(0, it.e - now) / URG.len * 100).toFixed(2) + '%'; });
+const sig = u.day + u.list.map(x => urgState(x, now)).join('');
+if (urgSig && sig !== urgSig && S.tab === 'today' && sheet.hidden) render();
+urgSig = sig;
+}, 1000);
+Object.assign(T.fr, {
+'u.title': 'Quête urgente', 'u.left': 'Temps restant', 'u.done': 'Accomplie', 'u.pop': '⚠ Quête urgente',
+'u.pop.d': 'Tu as 2 h. Réussie : +{n} XP. Ratée : elle disparaît.', 'u.ok': 'J\'accepte',
+'u.next': 'La prochaine tombe entre {a} et {b}. Garde l\'œil ouvert !', 'u.none': 'Plus de quête urgente aujourd\'hui. Reviens demain dès {a}.',
+'u.last.ok': 'Dernière quête urgente réussie · +{n} XP', 'u.last.miss': 'Dernière quête urgente ratée… la prochaine, tu ne la rates pas.',
+'u.how': 'Toutes les 4 h, une quête surprise : 2 h pour la faire.', 'u.complete': 'Quête urgente accomplie · +{n} XP',
+'u.complete.cap': 'Quête urgente accomplie · limite d\'XP du jour atteinte', 'u.late': 'Trop tard : le temps de cette quête urgente est écoulé.',
+'hub.title': 'Défis', 'hub.dg': 'Donjon', 'today.mine': 'Mes objectifs du jour', 'today.progress': 'Ma progression'
+});
+Object.assign(T.en, {
+'u.title': 'Urgent quest', 'u.left': 'Time left', 'u.done': 'Done', 'u.pop': '⚠ Urgent quest',
+'u.pop.d': 'You have 2 hours. Done: +{n} XP. Missed: it\'s gone.', 'u.ok': 'I accept',
+'u.next': 'The next one drops between {a} and {b}. Keep an eye out!', 'u.none': 'No more urgent quests today. Come back tomorrow from {a}.',
+'u.last.ok': 'Last urgent quest done · +{n} XP', 'u.last.miss': 'Last urgent quest missed… you won\'t miss the next one.',
+'u.how': 'Every 4 hours, a surprise quest: 2 hours to do it.', 'u.complete': 'Urgent quest complete · +{n} XP',
+'u.complete.cap': 'Urgent quest complete · daily XP limit reached', 'u.late': 'Too late: this urgent quest\'s time is up.',
+'hub.title': 'Challenges', 'hub.dg': 'Dungeon', 'today.mine': 'My goals today', 'today.progress': 'My progress'
+});
 const altOfLevel = lvl => Math.round((lvl - 1) / (MAX_LVL - 1) * ALT_TOP);
 const ASC_GAPS = [1.25, .8, 1.35, .7, 1.2, .75, 1.3, .85, 1.15, .65];
 const ascX = (i, x0, x1) => { const tot = ASC_GAPS.reduce((a, b) => a + b, 0); let s = 0; for (let k = 0; k <= i; k++) s += ASC_GAPS[k]; return x0 + s / tot * (x1 - x0); };
@@ -2649,6 +2796,7 @@ for (const k in q.log || {}) {
 if (!inR(k)) continue;
 const e = q.log[k];
 for (const d of e.d || []) { const st = statOf(d.id, d.c); if (st) s[st] += { 10: 1, 15: 2, 20: 3, 25: 4 }[d.xp] || 1; }
+for (const d of e.u || []) { const st = statOf(d.id, d.c); if (st) s[st] += 2; s.dis++; }
 if (e.b) s.dis += 2;
 }
 for (const k in q.focus || {}) if (inR(k)) s.int += q.focus[k];
@@ -2962,16 +3110,6 @@ return `<article class="card save-card" data-goal="${g.id}">
       ${saveEtaHtml(g)}
       ${p < 1 ? `<form class="inline-form" data-dep="${g.id}"><input type="text" min="0" step="any" inputmode="decimal" placeholder="${esc(t('dep.amount', { c: cur() }))}" aria-label="${esc(t('dep.amount', { c: cur() }))}" required><button class="btn" type="submit">＋ ${esc(t('dep.add'))}</button></form>` : ''}
     </article>`;
-}
-function vaultCard() {
-if (!S.onboarded || !vaultUsed() || !featOn('vault')) return '';
-const v = vaultSummary();
-return `<section class="card vault-card" id="vaultCard" role="button" tabindex="0" aria-label="${esc(t('v.title'))}">
-      <div class="row between"><span class="section-title v-head" style="margin:0">${IC.vault}${esc(t('v.title'))}</span><span class="vault-go" aria-hidden="true">›</span></div>
-      <div class="rp-mini v-mini"><div><b class="num">${esc(money(v.jars))}</b><small>${esc(t('v.s.jars'))}</small></div>
-        <div><b class="num${v.left != null && v.left < 0 ? ' neg' : ''}">${v.left == null ? '—' : esc(money(v.left))}</b><small>${esc(t('v.s.left'))}</small></div>
-        <div><b class="num">${esc(money(v.saved))}</b><small>${esc(t('v.s.saved'))}</small></div></div>
-      ${v.ripe ? `<p class="v-alert">⏰ ${esc(t('v.ripe', { n: v.ripe }))}</p>` : ''}</section>`;
 }
 function bindVaultCard(root) {
 const c = root.querySelector('#vaultCard'); if (!c) return;
@@ -3351,14 +3489,6 @@ const q = { id: uid(), c: 'study', ex: e.id, gt: e.n, coach: n === 0 ? 'examday'
 if (n === 0) return Object.assign(q, { k: 'm', diff: 2, xp: QXP[2] });
 return Object.assign(q, { k: 't', dur: ([15, 20, 25, 30, 40][Math.max(1, Math.min(5, tier)) - 1] + (soon ? 5 : 0)) * 60 });
 }
-function examCard() {
-const e = examsAhead().find(x => examDays(x) <= 14); if (!S.onboarded || !e) return '';
-const n = examDays(e);
-return `<section class="card exam-card" id="examCard" role="button" tabindex="0">
-      <div class="row between"><span class="section-title" style="margin:0">🎓 ${esc(t('ex.card'))}</span><span class="vault-go" aria-hidden="true">›</span></div>
-      <div class="exam-main"><b class="exam-j num">${n === 0 ? esc(t('ex.jday')) : esc(t('ex.in', { n }))}</b><div><b class="exam-n">${esc(e.n)}</b><small class="muted">${esc(fmtDate(e.d, true))} · ${esc(t('ex.rev', { n: e.rev || 0 }))}</small></div></div>
-      ${n <= 1 ? `<p class="exam-msg">${esc(t(n === 0 ? 'ex.today' : 'ex.tomorrow'))}</p>` : ''}</section>`;
-}
 function bindExamCard(root) {
 const c = root.querySelector('#examCard'); if (!c) return;
 c.onclick = openExams; c.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openExams(); } };
@@ -3490,17 +3620,6 @@ return `<svg class="gate ${cls}" viewBox="0 0 100 100" style="--g2:${c2}" role="
       ${emblemAt(dgRank(dg), 50, 51, 46, '')}</svg>`;
 }
 const dgCloses = dg => { const n = daysBetween(today(), dkey(addDays(parseKey(dg.ws), 6))); return n <= 0 ? t('dg.closes0') : t('dg.closes', { n }); };
-function dungeonCard() {
-const dg = dgNow(); if (!S.onboarded || !dg) return '';
-const f = dgFloor(), dt = dgDoneToday(dg), col = dgCol(dg);
-const status = dg.cleared ? t('dg.cleared') : (dt ? t('dg.tomorrow') : f && f.boss ? t('dg.bossReady') : t('dg.ready', { n: dg.floors.indexOf(f) + 1 })) + ' · ' + dgCloses(dg);
-return `<section class="card dg-card${dg.cleared ? ' cleared' : ''}" id="dgCard" role="button" tabindex="0" style="--g1:${col[0]};--g2:${col[1]}">
-      ${gateSvg(dg, 'sm')}
-      <div class="dg-info"><span class="dg-rank">${esc(t('dg.rank', { r: dgRankName(dg) }))}</span><b class="dg-name">${esc(dgName(dg))}</b>
-        <div class="dg-nodes">${dg.floors.map(x => `<i class="${x.done ? 'on' : ''}${x.boss ? ' boss' : ''}${x === f && !dt && !dg.cleared ? ' cur' : ''}"></i>`).join('')}</div>
-        <small class="${dg.cleared ? 'ok-txt' : 'muted'}">${esc(status)}</small></div>
-      <span class="vault-go" aria-hidden="true">›</span></section>`;
-}
 function bindDungeonCard(root) {
 const c = root.querySelector('#dgCard'); if (!c) return;
 c.onclick = () => openDungeon(); c.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDungeon(); } };
@@ -3573,7 +3692,7 @@ async function sha256(txt) { const b = await crypto.subtle.digest('SHA-256', new
 let aboutTaps = 0, aboutAt = 0;
 function creatorCard() {
 if (!creatorOn()) return '';
-const tools = [['sys', '🪟'], ['quests', '🎲'], ['level', '⬆️'], ['rank', '🛡️'], ['dgfloor', '🗝️'], ['dgwin', '🏆'], ['report', '📜'], ['intro', '✨']];
+const tools = [['sys', '🪟'], ['quests', '🎲'], ['urg', '⚠️'], ['level', '⬆️'], ['rank', '🛡️'], ['dgfloor', '🗝️'], ['dgwin', '🏆'], ['report', '📜'], ['intro', '✨']];
 return `<section class="card creator-card"><div class="row between"><h3>👑 ${esc(t('cr.title'))}</h3><span class="cr-chip">${esc(t('cr.on'))}</span></div>
       <p class="muted" style="margin:0;font-size:.88rem">${esc(t('cr.d'))}</p>
       <div class="field">${esc(t('cr.all'))}<div class="chips"><button type="button" class="chip" data-crall="1" aria-pressed="${creatorAll()}">${esc(t('cr.yes'))}</button><button type="button" class="chip" data-crall="0" aria-pressed="${!creatorAll()}">${esc(t('cr.no'))}</button></div></div>
@@ -3649,6 +3768,10 @@ save(); render(); toast('🗝️ ' + t('cr.dgfloor.ok')); openDungeon();
 }
 else if (k === 'dgwin') { const dg = dgNow() || { rank: 'legend', boss: 0 }; showDgWin(dg, DG.boss + DG.clear); SFX.play('rankUp'); }
 else if (k === 'report') openReport();
+else if (k === 'urg') {
+const it = ensureUrgent().list.find(x => !x.done); if (!it) return;
+it.s = Date.now() - 1000; it.e = it.s + URG.len; delete it.seen; save(); go();
+}
 else if (k === 'intro') { SFX.unlock().then(() => { S.onboarded = false; save(); showWelcome(); }); }
 else if (k === 'off') confirmBox(t('cr.off.q'), t('cr.off'), () => { S.creator = null; save(); SFX.play('down'); render(); scheduleSync(); }, false);
 }
@@ -3656,7 +3779,7 @@ Object.assign(T.fr, {
 'cr.title': 'Mode créateur', 'cr.on': 'ACTIVÉ', 'cr.d': 'Réservé au créateur de PeakMind. Ton XP ne change pas, et le classement en ligne est en pause tant que ce mode est activé.',
 'cr.all': 'Tout débloquer (thèmes, avatars, cadres, titres)', 'cr.yes': 'Oui', 'cr.no': 'Non',
 'cr.sys': 'Fenêtre SYSTÈME', 'cr.quests': 'Nouvelles quêtes', 'cr.level': 'Célébration de niveau', 'cr.rank': 'Célébration de rang',
-'cr.dgfloor': 'Rouvrir l\'étage du jour', 'cr.dgwin': 'Victoire du donjon', 'cr.report': 'Rapport du Système', 'cr.intro': 'Rejouer l\'intro',
+'cr.urg': 'Quête urgente maintenant', 'cr.dgfloor': 'Rouvrir l\'étage du jour', 'cr.dgwin': 'Victoire du donjon', 'cr.report': 'Rapport du Système', 'cr.intro': 'Rejouer l\'intro',
 'cr.off': 'Quitter le mode créateur', 'cr.off.q': 'Quitter le mode créateur ? Les récompenses reviennent à ton vrai niveau.',
 'cr.ask': 'Entre ton code créateur.', 'cr.bad': 'Code incorrect.', 'cr.welcome': 'Mode créateur activé. Bienvenue, créateur.', 'cr.already': 'Le mode créateur est déjà activé.',
 'cr.quests.ok': 'Nouvelles quêtes tirées', 'cr.dgfloor.ok': 'L\'étage du jour est de nouveau disponible'
@@ -3665,16 +3788,16 @@ Object.assign(T.en, {
 'cr.title': 'Creator mode', 'cr.on': 'ON', 'cr.d': 'Reserved for PeakMind\'s creator. Your XP doesn\'t change, and the online leaderboard is paused while this mode is on.',
 'cr.all': 'Unlock everything (themes, avatars, frames, titles)', 'cr.yes': 'Yes', 'cr.no': 'No',
 'cr.sys': 'SYSTEM window', 'cr.quests': 'New quests', 'cr.level': 'Level-up celebration', 'cr.rank': 'Rank-up celebration',
-'cr.dgfloor': 'Reopen today\'s floor', 'cr.dgwin': 'Dungeon victory', 'cr.report': 'System report', 'cr.intro': 'Replay the intro',
+'cr.urg': 'Urgent quest now', 'cr.dgfloor': 'Reopen today\'s floor', 'cr.dgwin': 'Dungeon victory', 'cr.report': 'System report', 'cr.intro': 'Replay the intro',
 'cr.off': 'Leave creator mode', 'cr.off.q': 'Leave creator mode? Rewards go back to your real level.',
 'cr.ask': 'Enter your creator code.', 'cr.bad': 'Wrong code.', 'cr.welcome': 'Creator mode on. Welcome, creator.', 'cr.already': 'Creator mode is already on.',
 'cr.quests.ok': 'New quests drawn', 'cr.dgfloor.ok': 'Today\'s floor is available again'
 });
-const FEATS = [{ id: 'dungeon', ico: '🌀' }, { id: 'vault', ico: '💰' }, { id: 'exam', ico: '🎓' }];
+const FEATS = [{ id: 'urgent', ico: '⚠️' }, { id: 'dungeon', ico: '🌀' }, { id: 'vault', ico: '💰' }, { id: 'exam', ico: '🎓' }];
 const journeyDay = () => S.startDay ? daysBetween(S.startDay, today()) + 1 : 99;
 function featDay(id) {
 const ints = S.interests || [];
-return id === 'dungeon' ? 2 : id === 'vault' ? (ints.includes('money') ? 1 : 3) : id === 'exam' ? (ints.includes('study') ? 2 : 4) : 1;
+return id === 'urgent' || id === 'dungeon' ? 2 : id === 'vault' ? (ints.includes('money') ? 1 : 3) : id === 'exam' ? (ints.includes('study') ? 2 : 4) : 1;
 }
 function featOn(id) { return creatorOn() || journeyDay() >= featDay(id); }
 function lockedFeatsHtml() {
@@ -3691,11 +3814,13 @@ fresh.forEach(f => { S.unlockSeen[f.id] = today(); }); save();
 return fresh.map(f => `<p class="sys-unlock"><span aria-hidden="true">🔓</span><span><b>${esc(t('ul.new'))} ${f.ico} ${esc(t('ul.' + f.id))}</b><small>${esc(t('ul.' + f.id + '.d'))}</small></span></p>`).join('');
 }
 Object.assign(T.fr, {
+'ul.urgent': 'Les quêtes urgentes', 'ul.urgent.d': 'Toutes les 4 h, le Système lance une quête surprise : tu as 2 h pour la faire.',
 'ul.dungeon': 'Les donjons', 'ul.vault': 'Le Coffre', 'ul.exam': 'Le mode examen', 'ul.tomorrow': 'se débloque demain', 'ul.inDays': 'se débloque dans {n} jours',
 'ul.new': 'Nouvelle fonction :', 'ul.dungeon.d': 'Un donjon s\'ouvre chaque semaine : grimpe ses étages et bats le boss.',
 'ul.vault.d': 'Tirelires, budget, envies sous clé et Académie de l\'argent (onglet Objectifs).', 'ul.exam.d': 'Ajoute tes contrôles : le Système te fera réviser chaque jour (onglet Objectifs).'
 });
 Object.assign(T.en, {
+'ul.urgent': 'Urgent quests', 'ul.urgent.d': 'Every 4 hours, the System drops a surprise quest: you have 2 hours to do it.',
 'ul.dungeon': 'Dungeons', 'ul.vault': 'The Vault', 'ul.exam': 'Exam mode', 'ul.tomorrow': 'unlocks tomorrow', 'ul.inDays': 'unlocks in {n} days',
 'ul.new': 'New feature:', 'ul.dungeon.d': 'A dungeon opens every week: climb its floors and beat the boss.',
 'ul.vault.d': 'Jars, budget, locked wants and the Money Academy (Goals tab).', 'ul.exam.d': 'Add your tests: the System will make you revise every day (Goals tab).'
@@ -3820,7 +3945,7 @@ Object.assign(T.fr, {
 'gd.title': 'Guide du Système', 'gd.row': 'Comment marche PeakMind, en 2 minutes', 'gd.intro': 'Touche une partie pour la lire.',
 'gd.start.t': '🎯 Le principe', 'gd.start.d': 'Tu choisis tes objectifs (sport, cours, sommeil, argent, mauvaises habitudes). Chaque action te rapporte de l\'XP. L\'XP te fait monter de niveau, de Fer jusqu\'à Légende, et grimper la montagne jusqu\'à 8 849 m.',
 'gd.quests.t': '⚔️ Les quêtes du jour', 'gd.quests.d': 'Chaque matin, le Système te donne 3 quêtes choisies pour toi. Plus tu réussis, plus elles deviennent dures. Tu peux en changer une par jour (↻). Finis les 3 pour une journée parfaite (+10 XP). Chaque semaine, un défi rapporte +50 XP.',
-'gd.xp.t': '⛰️ XP, niveaux et rangs', 'gd.xp.d': 'Tu peux gagner jusqu\'à 100 XP par jour (actions + quêtes). Les badges, le défi de la semaine et le boss du donjon rapportent de l\'XP en plus. Un nouveau rang tous les 10 niveaux : Bronze, Argent, Or… et Légende au niveau 100. Chaque niveau débloque des thèmes, des avatars ou des cadres.',
+'gd.xp.t': '⛰️ XP, niveaux et rangs', 'gd.xp.d': 'Tu peux gagner jusqu\'à 150 XP par jour (actions + quêtes, urgentes comprises). Les badges, le défi de la semaine et le boss du donjon rapportent de l\'XP en plus. Un nouveau rang tous les 10 niveaux : Bronze, Argent, Or… et Légende au niveau 100. Chaque niveau débloque des thèmes, des avatars ou des cadres.',
 'gd.dungeon.t': '🌀 Les donjons', 'gd.dungeon.d': 'Chaque lundi, un donjon de ton rang s\'ouvre. Grimpe un étage par jour, puis bats le boss avant dimanche soir : +75 XP. Réussis 2 donjons d\'affilée et le Système t\'envoie dans un donjon du rang au-dessus.',
 'gd.stats.t': '📊 Fiche, titres et badges', 'gd.stats.d': 'Tes quêtes font monter 5 stats : Force, Endurance, Intelligence, Discipline, Mental. Tu débloques des titres à afficher sous ton pseudo, et des badges qui rapportent chacun +50 XP.',
 'gd.vault.t': '💰 Le Coffre', 'gd.vault.d': 'Tirelires projet (avec ta date d\'arrivée), budget de la semaine, envies sous clé 48 h et Académie de l\'argent. Ouvre-le depuis l\'onglet Objectifs. Aucun montant ne quitte ton téléphone.',
@@ -3837,7 +3962,7 @@ Object.assign(T.en, {
 'gd.title': 'System guide', 'gd.row': 'How PeakMind works, in 2 minutes', 'gd.intro': 'Tap a part to read it.',
 'gd.start.t': '🎯 The idea', 'gd.start.d': 'You pick your goals (sport, school, sleep, money, bad habits). Every action earns XP. XP levels you up from Iron to Legend and takes you up the mountain, all the way to 8,849 m.',
 'gd.quests.t': '⚔️ Daily quests', 'gd.quests.d': 'Every morning, the System gives you 3 quests picked for you. The more you succeed, the harder they get. You can swap one per day (↻). Finish all 3 for a perfect day (+10 XP). Each week, a challenge earns +50 XP.',
-'gd.xp.t': '⛰️ XP, levels and ranks', 'gd.xp.d': 'You can earn up to 100 XP per day (actions + quests). Badges, the weekly challenge and the dungeon boss give extra XP. A new rank every 10 levels: Bronze, Silver, Gold… and Legend at level 100. Each level unlocks themes, avatars or frames.',
+'gd.xp.t': '⛰️ XP, levels and ranks', 'gd.xp.d': 'You can earn up to 150 XP per day (actions + quests, urgent ones included). Badges, the weekly challenge and the dungeon boss give extra XP. A new rank every 10 levels: Bronze, Silver, Gold… and Legend at level 100. Each level unlocks themes, avatars or frames.',
 'gd.dungeon.t': '🌀 Dungeons', 'gd.dungeon.d': 'Every Monday, a dungeon of your rank opens. Climb one floor per day, then beat the boss before Sunday night: +75 XP. Clear 2 dungeons in a row and the System sends you to a higher-rank dungeon.',
 'gd.stats.t': '📊 Profile, titles and badges', 'gd.stats.d': 'Your quests raise 5 stats: Strength, Stamina, Intelligence, Discipline, Mind. You unlock titles to show under your name, and badges worth +50 XP each.',
 'gd.vault.t': '💰 The Vault', 'gd.vault.d': 'Project jars (with your arrival date), weekly budget, 48-hour locked wants and the Money Academy. Open it from the Goals tab. No amount ever leaves your phone.',
@@ -4036,6 +4161,10 @@ Object.assign(T.en, {
 'bk.d.old': 'Last backup on {d}. Make a new one to keep your latest progress.', 'bk.go': 'Back up', 'bk.ok': 'Backup downloaded 💾'
 });
 const NEWS = {
+'1.6.0': {
+fr: ['🏆 Le classement mondial est ouvert : monde, semaine et amis (onglet Classement)', '⚠️ Quêtes urgentes : toutes les 4 h, une quête surprise, 2 h pour la faire', '🎯 Quêtes plus ciblées : sport, discipline, lecture, apprendre… faisables par tout le monde', '⚡ Jusqu\'à 150 XP par jour au lieu de 100', '🧭 Accueil mieux rangé : le Système, tes objectifs, les défis, ta progression', '🐞 Les fenêtres (comme le Coffre) se ferment en glissant vers le bas'],
+en: ['🏆 The global leaderboard is open: world, week and friends (Ranking tab)', '⚠️ Urgent quests: every 4 hours, a surprise quest, 2 hours to do it', '🎯 More focused quests: sport, discipline, reading, learning… doable by everyone', '⚡ Up to 150 XP per day instead of 100', '🧭 A tidier home screen: the System, your goals, challenges, your progress', '🐞 Sheets (like the Vault) close by swiping down']
+},
 '1.5.0': {
 fr: ['Nouvelle animation à chaque niveau gagné ⚡', 'Modifie un objectif avec le crayon ✏️ dans sa fiche', 'Une valeur entrée par erreur ? Supprime-la dans l\'historique (✕)', 'Rappel quotidien dans l\'agenda de ton téléphone (Réglages)', 'Un rappel pour sauvegarder tes progrès', 'Meilleur affichage sur les petits écrans', 'S\'ouvre plus vite avec un mauvais réseau, et garde son style hors ligne'],
 en: ['New animation every time you level up ⚡', 'Edit a goal with the pencil ✏️ in its sheet', 'Typed a wrong value? Delete it in the history (✕)', 'Daily reminder in your phone\'s calendar (Settings)', 'A reminder to back up your progress', 'Better layout on small screens', 'Opens faster on a bad network, and keeps its style offline']
