@@ -4,7 +4,7 @@
 const APP = 'PeakMind';
 const KEY = 'peakmind.v1';
 const OLD_KEY = 'peakwinner.v1';
-const VERSION = '1.6.0';
+const VERSION = '1.7.0';
 const OFFICIAL_URL = 'https://peakwinner93.github.io/app/';
 (() => {
 if (!OFFICIAL_URL || location.protocol === 'file:') return;
@@ -67,6 +67,9 @@ fr: {
 'i.sport': 'Sport & physique', 'i.study': 'Études', 'i.social': 'Réseaux sociaux', 'i.health': 'Santé & sommeil', 'i.quit': 'Arrêter une mauvaise habitude', 'i.money': 'Argent & projets',
 'sugg.t': 'Suggestions pour toi', 'sugg.other': 'Un autre objectif', 'sugg.other.d': 'Choisis parmi tous les types', 's.replay': 'Revoir l\'accueil',
 's.sound': 'Sons', 's.sound.on': 'Activés', 's.sound.off': 'Coupés',
+'s.mix': 'Avec ta musique (Spotify…)', 's.mix.on': 'Ne pas la couper', 's.mix.loud': 'Priorité aux sons',
+'s.mix.on.d': 'Ta musique continue pendant les sons de PeakMind. En mode silencieux, les sons de PeakMind sont coupés.',
+'s.mix.loud.d': 'Les sons de PeakMind jouent même en mode silencieux, mais ils mettent ta musique en pause.',
 'tab.league': 'Classement', 'lg.live': 'En ligne', 'lg.world': 'Monde', 'lg.week': 'Semaine', 'lg.friends': 'Amis', 'lg.you': 'toi',
 'lg.soon.t': 'Bientôt en ligne', 'lg.soon.d': 'Le classement arrive bientôt. Ton code ami est déjà prêt : garde-le pour ajouter tes amis dès l\'ouverture.',
 'lg.f.world': 'Classement mondial : tous les utilisateurs de PeakMind, selon leur XP.', 'lg.f.week': 'Classement de la semaine : remis à zéro chaque lundi, tout le monde a sa chance.',
@@ -181,6 +184,9 @@ en: {
 'i.sport': 'Sport & fitness', 'i.study': 'School', 'i.social': 'Social media', 'i.health': 'Health & sleep', 'i.quit': 'Quit a bad habit', 'i.money': 'Money & projects',
 'sugg.t': 'Suggested for you', 'sugg.other': 'Another goal', 'sugg.other.d': 'Pick from every type', 's.replay': 'Replay the welcome',
 's.sound': 'Sounds', 's.sound.on': 'On', 's.sound.off': 'Off',
+'s.mix': 'With your music (Spotify…)', 's.mix.on': 'Keep it playing', 's.mix.loud': 'Sounds first',
+'s.mix.on.d': 'Your music keeps playing during PeakMind sounds. In silent mode, PeakMind sounds are muted.',
+'s.mix.loud.d': 'PeakMind sounds play even in silent mode, but they pause your music.',
 'tab.league': 'Ranking', 'lg.live': 'Live', 'lg.world': 'World', 'lg.week': 'Week', 'lg.friends': 'Friends', 'lg.you': 'you',
 'lg.soon.t': 'Coming soon', 'lg.soon.d': 'The ranking is coming soon. Your friend code is already ready: keep it to add your friends as soon as it opens.',
 'lg.f.world': 'World ranking: every PeakMind user, by XP.', 'lg.f.week': 'Weekly ranking: reset every Monday, everyone gets a chance.',
@@ -466,7 +472,7 @@ function init() {
 if (ctx) return ctx;
 const AC = window.AudioContext || window.webkitAudioContext;
 if (!AC) return null;
-try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {  }
+session();
 ctx = new AC();
 const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -20; comp.knee.value = 12; comp.ratio.value = 3.5; comp.attack.value = .004; comp.release.value = .18;
 const tame = ctx.createBiquadFilter(); tame.type = 'highshelf'; tame.frequency.value = 7500; tame.gain.value = -5;
@@ -484,6 +490,7 @@ fb.gain.value = .32; damp.type = 'lowpass'; damp.frequency.value = 2600; wet.gai
 echo.connect(damp); damp.connect(fb); fb.connect(echo); damp.connect(wet); wet.connect(master);
 return ctx;
 }
+function session() { try { if (navigator.audioSession) navigator.audioSession.type = S.soundLoud ? 'playback' : 'ambient'; } catch (e) {  } }
 const locked = () => !ctx || ctx.state !== 'running';
 function unlock() {
 if (!on() || !init()) return Promise.resolve();
@@ -584,7 +591,7 @@ ctx.resume().catch(() => {});
 try { SOUNDS[name](arg); } catch (e) { console.warn('PeakMind son', name, e); }
 }
 function cutIntro() { if (introBus && ctx) { introBus.gain.setTargetAtTime(0, ctx.currentTime, .04); introBus = null; } }
-return { play, unlock, locked, cutIntro };
+return { play, unlock, locked, cutIntro, session };
 })();
 let sheetLock = false, onSheetClose = null;
 function runSheetHook() { const cb = onSheetClose; onSheetClose = null; if (cb) cb(); }
@@ -678,7 +685,19 @@ $('.tabbar').hidden = !S.onboarded;
 if (!S.onboarded && welcomeEl.hidden) showWelcome();
 const sb = $('#setBtn'); sb.setAttribute('aria-label', t('tab.settings')); if (S.tab === 'settings') sb.setAttribute('aria-current', 'page'); else sb.removeAttribute('aria-current');
 questsTick();
-({ today: renderToday, goals: renderGoals, league: renderLeague, profile: renderProfile, settings: renderSettings }[S.tab] || renderToday)();
+const changed = shownTab !== S.tab, dir = shownTab ? Math.sign(TAB_ORDER.indexOf(S.tab) - TAB_ORDER.indexOf(shownTab)) : 0;
+({ today: renderToday, goals: renderGoals, loot: renderLoot, league: renderLeague, profile: renderProfile, settings: renderSettings }[S.tab] || renderToday)();
+const lb = $('#lootTab'); if (lb) { const n = S.onboarded ? loot().n : 0; lb.setAttribute('aria-label', t('lt.title') + (n ? ' · ' + n : '')); const bd = lb.querySelector('.loot-badge'); bd.hidden = !n; bd.textContent = n > 9 ? '9+' : n; }
+if (changed && S.onboarded) animateView(dir);
+shownTab = S.tab;
+}
+const TAB_ORDER = ['today', 'goals', 'loot', 'league', 'profile', 'settings'];
+let shownTab = null, animTimer = null;
+function animateView(dir) {
+view.style.setProperty('--dir', dir);
+[...view.children].forEach((el, i) => el.style.setProperty('--i', Math.min(i, 9)));
+view.classList.remove('tab-in'); void view.offsetWidth; view.classList.add('tab-in');
+clearTimeout(animTimer); animTimer = setTimeout(() => view.classList.remove('tab-in'), 1100);
 }
 const AVATARS = ['initials', 'peak', 'target', 'bolt', 'flame', 'shield', 'crown', 'compass', 'dumbbell', 'diamond', 'trend', 'book', 'summit', 'star',
 'rocket', 'heart', 'moon', 'kettlebell', 'sword', 'wave', 'leaf', 'controller', 'headphones', 'planet', 'atom', 'infinity'];
@@ -714,6 +733,96 @@ planet: '<circle class="f" cx="12" cy="12" r="6.4"/><path d="M5.2 14.6c-2.4 1.8-
 atom: '<circle cx="12" cy="12" r="1.6" fill="currentColor"/><ellipse class="f" cx="12" cy="12" rx="9.4" ry="3.8"/><ellipse cx="12" cy="12" rx="9.4" ry="3.8" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.4" ry="3.8" transform="rotate(120 12 12)"/>',
 infinity: '<path class="f" d="M12 12c-2.2-2.7-3.9-4-5.9-4a4 4 0 0 0 0 8c2 0 3.7-1.3 5.9-4zm0 0c2.2 2.7 3.9 4 5.9 4a4 4 0 0 0 0-8c-2 0-3.7 1.3-5.9 4z"/>'
 };
+const EMO_SVG = {
+'❄️': '<path d="M12 2.5v19M3.8 7.25l16.4 9.5M3.8 16.75l16.4-9.5"/><path d="M9.4 4.3L12 6.6l2.6-2.3M9.4 19.7L12 17.4l2.6 2.3M4.6 10.4l3.2-1 .7-3.4M19.4 13.6l-3.2 1-.7 3.4M4.6 13.6l3.2 1 .7 3.4M19.4 10.4l-3.2-1-.7-3.4"/>',
+'🎯': AV_SVG.target, '⛰️': AV_SVG.peak, '🏔️': AV_SVG.summit, '🔥': AV_SVG.flame, '⭐': AV_SVG.star, '🎮': AV_SVG.controller, '🧭': AV_SVG.compass,
+'⚡': AV_SVG.bolt, '🏋️': AV_SVG.kettlebell, '💪': AV_SVG.dumbbell, '📚': AV_SVG.book, '📖': AV_SVG.book, '📘': AV_SVG.book, '😴': AV_SVG.moon, '🌙': AV_SVG.moon,
+'🚀': AV_SVG.rocket, '👑': AV_SVG.crown, '🛡️': AV_SVG.shield, '⚔️': AV_SVG.sword, '🗡️': AV_SVG.sword, '💎': AV_SVG.diamond, '📈': AV_SVG.trend, '🍀': AV_SVG.leaf, '❤️': AV_SVG.heart,
+'🏃': '<circle class="f" cx="14.6" cy="4.4" r="2"/><path d="M6.2 12.2l2.8-3 4.4-.2 2.4 3.4 3 .9M11.6 9.2l-2 5.4 3.4 2.6-1.2 4.6M9.6 14.6l-3.2 1.6-2.4-.6"/>',
+'🚶': '<circle class="f" cx="12.6" cy="4.2" r="2"/><path d="M12 8.2l-1.8 6 2.8 2.6.8 4.8M10.2 14.2l-2.2 6.8M11.6 8.4l3.4 2.6 2.4.4M11.6 8.4l-3.2 2.2-.8 3"/>',
+'👟': '<path class="f" d="M2.8 15.2c0-2.2.5-5 1.2-7l3.6 1.6 2.6-1.4 1.8 2.8c1.7 2.3 4.6 2.8 7.4 3.2 1.4.2 2 1.3 2 2.4v1.4H2.8z"/><path d="M2.8 18.2h18.6M8.4 10.6l1.2 1.6M11 9.6l1.2 1.6"/>',
+'🎓': '<path class="f" d="M12 4.2l10 4.6-10 4.6-10-4.6z"/><path d="M6.4 10.8v4.6c0 1.4 2.5 3 5.6 3s5.6-1.6 5.6-3v-4.6M21.2 9.2v5.4"/>',
+'💧': '<path class="f" d="M12 2.8c3.6 4.4 6.2 8 6.2 11.2a6.2 6.2 0 0 1-12.4 0c0-3.2 2.6-6.8 6.2-11.2z"/><path d="M9.2 14.6a2.8 2.8 0 0 0 2.6 2.8"/>',
+'🧘': '<circle cx="12" cy="4.8" r="2"/><path class="f" d="M12 8.4c-2 0-3 1.6-3 3.6v2.6h6V12c0-2-1-3.6-3-3.6z"/><path d="M3.8 18.4c2.6-.7 5-1.2 8.2-1.2s5.6.5 8.2 1.2M6.2 12.8l2.8 1.6M17.8 12.8L15 14.4"/>',
+'🎵': '<path d="M9 18V5.6l10-2.2v12"/><circle class="f" cx="6.6" cy="18" r="2.6"/><circle class="f" cx="16.6" cy="15.4" r="2.6"/>',
+'💰': '<ellipse class="f" cx="12" cy="6.4" rx="7" ry="2.8"/><path d="M5 6.4v5.6c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8V6.4M5 12v5.6c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8V12"/>',
+'🐷': '<path class="f" d="M4.8 12.6c0-3.6 3.2-6 7.4-6 1.6 0 3 .3 4.2.9l2.6-1.3-.4 3a5.6 5.6 0 0 1 1.6 2.6h1.4v3.4h-1.8a6.6 6.6 0 0 1-2.4 2.4V20h-3v-1.6H11V20H8v-2.4a5.7 5.7 0 0 1-3.2-5z"/><circle cx="15.6" cy="10.8" r=".9" fill="currentColor"/><path d="M10 7.4h3.4"/>',
+'🥤': '<path class="f" d="M6.6 7.6h10.8l-1.4 13H8z"/><path d="M5.6 7.6h12.8M12 7.6l2.4-5"/>',
+'📱': '<rect class="f" x="6.6" y="2.6" width="10.8" height="18.8" rx="2.4"/><path d="M10.6 18.2h2.8"/>',
+'📵': '<rect class="f" x="6.6" y="2.6" width="10.8" height="18.8" rx="2.4"/><path d="M3.4 3.4l17.2 17.2"/>',
+'📲': '<rect class="f" x="7" y="2.6" width="10" height="18.8" rx="2.2"/><path d="M12 7.4v6.8M9.4 11.6L12 14.2l2.6-2.6"/>',
+'💻': '<rect class="f" x="4.4" y="4.6" width="15.2" height="10.6" rx="1.4"/><path d="M2.6 19.2h18.8l-1.4-2.4H4z"/>',
+'✈️': '<path class="f" d="M20.6 3.4c.7.6.6 1.6-.1 2.3l-4 4 2.4 9.4-1.8 1.8-4.4-7.4-3.4 3.4.4 3-1.4 1.4-2-3.6-3.6-2 1.4-1.4 3 .4 3.4-3.4-7.4-4.4L4.4 5l9.4 2.4 4-4c.7-.7 1.8-.8 2.8 0z"/>',
+'🛟': '<circle class="f" cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.8"/><path d="M5.6 5.6l3.7 3.7M18.4 5.6l-3.7 3.7M5.6 18.4l3.7-3.7M18.4 18.4l-3.7-3.7"/>',
+'🚫': '<circle class="f" cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
+'🛑': '<path class="f" d="M8.2 2.8h7.6l5.4 5.4v7.6l-5.4 5.4H8.2l-5.4-5.4V8.2z"/><path d="M8.4 12h7.2"/>',
+'💬': '<path class="f" d="M4 5.6a2.4 2.4 0 0 1 2.4-2.4h11.2A2.4 2.4 0 0 1 20 5.6v8a2.4 2.4 0 0 1-2.4 2.4H10l-4.4 3.8V16A2.4 2.4 0 0 1 4 13.6z"/><path d="M8 8.6h8M8 11.6h5"/>',
+'🧠': '<path class="f" d="M12 5.8c-.4-1.2-1.6-2.2-3-2.2a3 3 0 0 0-3 3 3.2 3.2 0 0 0-2.2 5.4 3.2 3.2 0 0 0 2.2 5.4 3 3 0 0 0 3 3c1.4 0 2.6-1 3-2.2 .4 1.2 1.6 2.2 3 2.2a3 3 0 0 0 3-3 3.2 3.2 0 0 0 2.2-5.4A3.2 3.2 0 0 0 18 6.6a3 3 0 0 0-3-3c-1.4 0-2.6 1-3 2.2z"/><path d="M12 5.8v12.6M8.6 9.4c1 0 1.8.8 1.8 1.8M15.4 13.4c-1 0-1.8-.8-1.8-1.8"/>',
+'✦': '<path class="f" d="M12 2.8l2.2 6.9 6.9 2.3-6.9 2.2L12 21.2l-2.2-7-6.9-2.2 6.9-2.3z"/>',
+'✨': '<path class="f" d="M10 3.6l1.8 5.4 5.4 1.8-5.4 1.8L10 18l-1.8-5.4-5.4-1.8 5.4-1.8z"/><path d="M18 3.2v4M16 5.2h4M18.4 16v3.6M16.6 17.8h3.6"/>',
+'🌀': '<circle class="f" cx="12" cy="12" r="9"/><path d="M12 12.2a1.4 1.4 0 1 1 1.4-1.4 3.2 3.2 0 0 1-3.2 3.2 4.6 4.6 0 0 1 0-9.2 6 6 0 0 1 6 6"/>',
+'🏆': '<path class="f" d="M7.4 3.6h9.2v4.6a4.6 4.6 0 0 1-9.2 0z"/><path d="M7.4 5.2H4.6c0 2.6 1.2 4.4 3.2 4.8M16.6 5.2h2.8c0 2.6-1.2 4.4-3.2 4.8M12 12.8v4M8.6 20.4h6.8l-.8-3.6H9.4z"/>',
+'🏅': '<path d="M8 2.8l2.4 5.4M16 2.8l-2.4 5.4"/><circle class="f" cx="12" cy="14.4" r="6"/><path d="M12 11.6l.9 1.8 2 .3-1.4 1.4.3 2-1.8-.9-1.8.9.3-2-1.4-1.4 2-.3z"/>',
+'✏️': '<path class="f" d="M15.6 3.8l4.6 4.6L9 19.6l-5.4.8.8-5.4z"/><path d="M13.4 6l4.6 4.6"/>',
+'📝': '<path class="f" d="M5 3.4h9.6l4.4 4.4v12.8H5z"/><path d="M14.6 3.4v4.4H19M8.4 12h7.2M8.4 15.4h4.6"/>',
+'🔮': '<circle class="f" cx="12" cy="10.4" r="7"/><path d="M6.4 20.2h11.2l-1.6-3H8zM9.4 7.6a3.6 3.6 0 0 1 3-1.4"/>',
+'💾': '<path class="f" d="M4.6 3.6h11.6l3.2 3.2v12.6a1.2 1.2 0 0 1-1.2 1.2H4.6a1.2 1.2 0 0 1-1.2-1.2V4.8a1.2 1.2 0 0 1 1.2-1.2z"/><path d="M7.4 3.6v5h8v-5M7.4 20.6v-6.4h9.2v6.4"/>',
+'⏳': '<path class="f" d="M7 3.4h10c0 4-2.6 5.8-5 8.6-2.4-2.8-5-4.6-5-8.6zM7 20.6h10c0-4-2.6-5.8-5-8.6-2.4 2.8-5 4.6-5 8.6z"/><path d="M5.6 3.4h12.8M5.6 20.6h12.8"/>',
+'⏰': '<circle class="f" cx="12" cy="13" r="7.4"/><path d="M12 9.4V13l2.4 1.8M4.2 6.2l3-2.6M19.8 6.2l-3-2.6"/>',
+'⏱': '<circle class="f" cx="12" cy="13.4" r="7.4"/><path d="M12 13.4V9.6M9.6 2.8h4.8M18.4 6.4l1.4-1.4"/>',
+'🍔': '<path class="f" d="M4 10.4c0-3.6 3.6-6 8-6s8 2.4 8 6z"/><path d="M3.6 13.4h16.8M4.4 16.4c0 1.6 1.4 3.2 3 3.2h9.2c1.6 0 3-1.6 3-3.2z"/>',
+'🍬': '<rect class="f" x="7.6" y="7.6" width="8.8" height="8.8" rx="4.4" transform="rotate(45 12 12)"/><path d="M5.6 5.6l-2.4-1 1 2.4M18.4 18.4l2.4 1-1-2.4"/>',
+'🎬': '<rect class="f" x="3.4" y="9" width="17.2" height="11.4" rx="1.6"/><path d="M3.8 9l15.6-4.4.6 2.4L4.4 11.4M8 7.8l2 2.6M12.6 6.6l2 2.6"/>',
+'💶': '<circle class="f" cx="12" cy="12" r="9"/><path d="M15.4 8.4a4.2 4.2 0 1 0 0 7.2M6.8 10.8h6.4M6.8 13.4h6.4"/>',
+'📊': '<path d="M3.6 20.4h16.8"/><rect class="f" x="5.6" y="11" width="3.2" height="9"/><rect class="f" x="10.4" y="6.4" width="3.2" height="13.6"/><rect class="f" x="15.2" y="13.6" width="3.2" height="6.4"/>',
+'👥': '<circle class="f" cx="9" cy="8.2" r="3.4"/><path class="f" d="M2.8 19.6c.6-3.4 3-5.4 6.2-5.4s5.6 2 6.2 5.4z"/><path d="M15.4 5a3.2 3.2 0 0 1 0 6.4M17.4 14.4c2 .6 3.4 2.4 3.8 5.2"/>',
+'🎁': '<path class="f" d="M3.6 8.4h16.8v4.2H3.6zM5 12.6h14v8H5z"/><path d="M12 8.4v12.2M12 8.4c-1.6-3.6-5.6-4-5.6-1.6 0 1.6 3.4 1.6 5.6 1.6zM12 8.4c1.6-3.6 5.6-4 5.6-1.6 0 1.6-3.4 1.6-5.6 1.6z"/>',
+'💡': '<path class="f" d="M12 2.8a6.4 6.4 0 0 0-3.8 11.6c.8.6 1.2 1.4 1.2 2.4h5.2c0-1 .4-1.8 1.2-2.4A6.4 6.4 0 0 0 12 2.8z"/><path d="M9.6 19.6h4.8M10.4 21.8h3.2"/>',
+'🚩': '<path d="M5.6 21.4V3.4"/><path class="f" d="M5.6 4h11.6l-2.6 4 2.6 4H5.6z"/>',
+'🏁': '<path d="M5.6 21.4V3.4"/><path class="f" d="M5.6 4h13v8.4h-13z"/><path d="M5.6 8.2h13M9.9 4v8.4M14.3 4v8.4"/>',
+'🔒': '<rect class="f" x="5" y="10.6" width="14" height="10" rx="2"/><path d="M8 10.6V7.6a4 4 0 0 1 8 0v3M12 14.6v2.2"/>',
+'🗝️': '<circle class="f" cx="7.6" cy="15.4" r="4.2"/><path d="M10.6 12.4l9-9M16.6 6.4l2.4 2.4M14.4 8.6l1.8 1.8"/>',
+'🧊': '<path class="f" d="M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z"/><path d="M4 7.4l8 4.6 8-4.6M12 12v9.2"/>',
+'📜': '<path class="f" d="M6.4 4h11.2v13.6a2.4 2.4 0 0 1-2.4 2.4H5.6a2.4 2.4 0 0 1-2.4-2.4V16h11.6"/><path d="M17.6 4a2 2 0 0 1 2 2v1.6h-2M8.8 8.4h5.6M8.8 11.6h5.6"/>',
+'🌍': '<circle class="f" cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.6 5.6 3.6 9s-1 6.4-3.6 9M12 3c-2.6 2.6-3.6 5.6-3.6 9s1 6.4 3.6 9"/>',
+'🎲': '<rect class="f" x="3.6" y="3.6" width="16.8" height="16.8" rx="3.4"/><circle cx="8.4" cy="8.4" r="1.2" fill="currentColor"/><circle cx="15.6" cy="15.6" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>',
+'⚠️': '<path class="f" d="M12 3.2l9.6 17H2.4z"/><path d="M12 9.4v5M12 17.2v.4"/>',
+'📅': '<rect class="f" x="3.6" y="5" width="16.8" height="15.4" rx="2.2"/><path d="M3.6 9.6h16.8M8 3v4M16 3v4"/>',
+'✅': '<rect class="f" x="3.6" y="3.6" width="16.8" height="16.8" rx="4"/><path d="M8 12.2l2.8 2.8 5.4-5.6"/>',
+'🫁': '<path class="f" d="M9.6 6.4c-2.6 0-5.4 4-5.4 9.4 0 2.4 1 3.8 2.8 3.8 2.6 0 3.4-2 3.4-4.6V8.2zM14.4 6.4c2.6 0 5.4 4 5.4 9.4 0 2.4-1 3.8-2.8 3.8-2.6 0-3.4-2-3.4-4.6V8.2z"/><path d="M12 3v7.4M12 10.4l-2.4 2M12 10.4l2.4 2"/>',
+'🏷️': '<path class="f" d="M3.6 12.4V4.6a1 1 0 0 1 1-1h7.8l8.2 8.2a1.4 1.4 0 0 1 0 2l-6.8 6.8a1.4 1.4 0 0 1-2 0z"/><circle cx="8" cy="8" r="1.5"/>',
+'📤': '<path class="f" d="M4 13.4v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5z"/><path d="M12 3.6v11M8.2 7.4L12 3.6l3.8 3.8"/>'
+};
+const emoKey = s => String(s || '').replace(/️/g, '').trim();
+const EMO = {}; for (const k in EMO_SVG) EMO[emoKey(k)] = EMO_SVG[k];
+const emoSvg = (e, cls = 'ico-line') => { const p = EMO[emoKey(e)]; return p ? `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>` : ''; };
+const ICO_SEL = '.emoji, .q-ico, .hub-ico, .in-ico, .guide-tip > span, [data-emoji]';
+function iconize(root) {
+const els = root.matches && root.matches(ICO_SEL) ? [root] : [];
+if (root.querySelectorAll) els.push(...root.querySelectorAll(ICO_SEL));
+for (const el of els) { if (el.querySelector('svg')) continue; const s = emoSvg(el.textContent); if (s) { el.innerHTML = s; el.classList.add('has-ico'); } }
+}
+const INL_SEL = '.btn, .q-act, .q-focus, .q-fz, .urg-badge, .sheet-head h2, .dg-banner, .sys-dg, .goal-row small, #setInstall, .news-card li, .toast, #toast';
+const EMO_RX = new RegExp('(' + Object.keys(EMO).sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\uFE0F?', 'gu');
+function inlineIco(el) {
+const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), nodes = [];
+while (walk.nextNode()) { EMO_RX.lastIndex = 0; if (EMO_RX.test(walk.currentNode.textContent)) nodes.push(walk.currentNode); }
+for (const tn of nodes) {
+const frag = document.createDocumentFragment(), s = tn.textContent; let last = 0; EMO_RX.lastIndex = 0;
+for (const m of s.matchAll(EMO_RX)) {
+if (m.index > last) frag.append(s.slice(last, m.index));
+const sp = document.createElement('span'); sp.className = 'ico-inl'; sp.innerHTML = emoSvg(m[1], 'ico-in'); frag.append(sp); last = m.index + m[0].length;
+}
+frag.append(s.slice(last).replace(/^\s+/, ' ')); tn.replaceWith(frag);
+}
+}
+new MutationObserver(ms => {
+for (const m of ms) for (const n of m.addedNodes) {
+const el = n.nodeType === 1 ? n : n.parentElement; if (!el) continue;
+if (n.nodeType === 1) { iconize(n); n.querySelectorAll(INL_SEL).forEach(inlineIco); }
+const host = el.closest(INL_SEL); if (host) inlineIco(host);
+}
+}).observe(document.body, { childList: true, subtree: true });
 function initialsOf(name) {
 const parts = String(name || '').split(/[\s._-]+/).filter(Boolean);
 if (!parts.length) return 'PM';
@@ -947,7 +1056,7 @@ welcomeEl.classList.add('leaving');
 setTimeout(() => {
 welcomeEl.hidden = true; welcomeEl.innerHTML = ''; welcomeEl.className = 'welcome'; welcomeEl.onclick = null;
 document.body.style.overflow = '';
-checkBadges(); render();
+checkBadges(); render(); setTimeout(autoJoinLeague, 4000);
 const bar = $('.tabbar');
 view.classList.add('app-enter'); bar.classList.add('app-enter');
 setTimeout(() => { view.classList.remove('app-enter'); bar.classList.remove('app-enter'); }, 1400);
@@ -1051,7 +1160,7 @@ return `<article class="card" data-goal="${g.id}">
 function runCard() {
 const last = (S.runs || []).slice(-1)[0];
 return `<article class="card run-card">
-      <div class="card-head"><div class="emoji">🏃</div><div class="card-title"><h3>${esc(t('run.title'))}</h3><p>${esc(last ? t('run.last', { km: nf(last.km, 2), date: fmtDate(last.d) }) : t('run.none'))}</p></div></div>
+      <div class="card-head"><div class="emoji">🏃</div><div class="card-title"><h3>${esc(t('run.title'))}</h3>${last ? `<p>${esc(t('run.last', { km: nf(last.km, 2), date: fmtDate(last.d) }))}</p>` : ''}</div></div>
       <button type="button" class="btn block" data-run>${esc(t('run.start'))}</button></article>`;
 }
 const quoteCard = () => {
@@ -1060,16 +1169,18 @@ const [o, c] = S.lang === 'fr' ? ['« ', ' »'] : ['“', '”'];
 return `<section class="card quote"><span class="section-title" style="margin:0">${esc(t('quote.t'))}</span><p>${o}${esc(q[i])}${c}</p></section>`;
 };
 function renderToday() {
-const top = heroHtml() + betaCard() + newsCard() + urgentCard() + dangerCard() + questsHtml() + guideTip() + installCard() + backupCard();
-const hub = dungeonRow() + weeklyRow() + examRow() + vaultRow();
+const top = heroHtml() + betaCard() + newsCard() + dangerCard() + urgentCard() + questsHtml() + lootCards();
+const hub = dungeonRow() + weeklyRow() + examRow();
+const tips = guideTip() || installCard() || backupCard();
 const tail = (hub ? `<h2 class="section-title">${esc(t('hub.title'))}</h2><div class="hub">${hub}</div>` : '')
-+ `<h2 class="section-title">${esc(t('today.progress'))}</h2>${reportCard()}${climbCard()}${quoteCard()}`;
++ `<h2 class="section-title">${esc(t('today.progress'))}</h2>${reportCard()}`
++ (tips ? `<div class="tips">${tips}</div>` : '');
 if (!S.goals.length) {
 view.innerHTML = top + (suggestions().length
 ? `<h2 class="section-title">${esc(t('sugg.t'))}</h2><div class="types">${suggestionButtons()}</div><button type="button" class="btn ghost" id="emptyCta">${esc(t('sugg.other'))}</button>`
 : `<div class="empty"><img src="icons/icon-192.png" alt=""><h2>${esc(t('empty.title'))}</h2><p class="muted" style="margin:0;max-width:34ch">${esc(t('empty.text'))}</p><button type="button" class="btn" id="emptyCta">${esc(t('empty.cta'))}</button></div>`) + tail;
 $('#emptyCta').onclick = openNew;
-$('#climbCard').onclick = openClimb;
+if ($('#climbCard')) $('#climbCard').onclick = openClimb;
 bindSuggestions(view); bindQuests(view); bindVaultCard(view); bindExamCard(view); bindDungeonCard(view); bindTodayExtras(view); bindInstall(view); bindBackup(view); bindNews(view); bindBeta(view); maybeSystemPopup();
 const rp0 = $('#rpOpenT'); if (rp0) rp0.onclick = () => openReport();
 return;
@@ -1157,9 +1268,11 @@ const st = ppStats(), lvl = st.level, n = BADGES.filter(b => S.badges[b.id]).len
 const tile = (kind, id, preview, label) => {
 const need = reqLevel(kind, id), ok = isUnlocked(kind, id, lvl);
 const on = ok && (kind === 'avatar' ? !S.photo && avatarOf() === id : kind === 'frame' ? frameOf() === id : themeOf().id === id);
-return `<button type="button" class="rw-tile" data-rw="${kind}:${id}" aria-pressed="${on}" aria-disabled="${!ok}" aria-label="${esc(label)}${ok ? '' : ' · ' + esc(t('rw.locked', { n: need }))}">`
+const sp = special(kind, id);
+const rr = sp && sp.loot ? lootRar(sp.loot) : -1;
+return `<button type="button" class="rw-tile${rr >= 0 ? ' rar r' + rr : ''}"${rr >= 0 ? ` style="--rc:${RAR[rr]}"` : ''} data-rw="${kind}:${id}" aria-pressed="${on}" aria-disabled="${!ok}" aria-label="${esc(label)}${ok ? '' : ' · ' + esc(lockTxt(kind, id))}">`
 + `<span class="rw-prev">${preview}</span>${kind === 'avatar' ? '' : `<span class="rw-name">${esc(label)}</span>`}`
-+ `${ok ? '' : `<span class="lock">🔒 ${esc(t('lvl.short', { n: need }))}</span>`}</button>`;
++ `${ok ? '' : `<span class="lock">🔒 ${esc(sp ? (sp.inst ? t('in.fr.short') : t('lt.r' + rr)) : t('lvl.short', { n: need }))}</span>`}${ok && rr >= 0 ? `<span class="rw-rar">${esc(t('lt.r' + rr))}</span>` : ''}</button>`;
 };
 const tabs = {
 themes: [THEMES.filter(th => isUnlocked('theme', th.id, lvl)).length, THEMES.length],
@@ -1181,15 +1294,15 @@ view.innerHTML = `<section class="card profile-card">${myAvatar('huge')}
         <span class="hero-title">« ${esc(L(titleNow(), ''))} »</span>
         <div class="rank-line">${rankEmblem(st.rank, 'sm')}<span class="lvl-pill num">${esc(t('lvl.n', { n: lvl }))} · ${esc(L(st.rank, ''))}</span></div>
         <div class="bar"><i style="width:${(p * 100).toFixed(1)}%"></i></div>
-        <span class="muted num">${st.max ? esc(t('lvl.total', { n: nf(st.total) })) : `${nf(st.total)} / ${nf(st.to)} XP`} · ${esc(st.next)}</span>
+        <span class="muted num">${st.max ? esc(t('lvl.total', { n: nf(st.total) })) : `${nf(st.in)} / ${nf(st.need)} XP`} · ${esc(st.next)}</span>
         <div class="grid-2 prof-btns"><button type="button" class="btn subtle" id="profProgress">${esc(t('lvl.sheet'))}</button><button type="button" class="btn" id="profShare">📤 ${esc(t('pc.share'))}</button></div></section>
       ${ascentCard()}
       ${hunterCard()}
       ${activityCard()}
-      ${codeCard(true)}
       <div class="seg" role="tablist" aria-label="${esc(t('tab.profile'))}">${Object.keys(tabs).map(k => `<button type="button" role="tab" data-ptab="${k}" aria-selected="${k === cur}">${esc(t('pt.' + k))}<small class="num">${tabs[k][0]}/${tabs[k][1]}</small></button>`).join('')}</div>
-      <p class="muted" style="margin:0">${esc(t(cur === 'badges' ? 'badges.hint' : cur === 'titles' ? 'ti.hint' : 'rw.hint'))}</p>
-      ${body}`;
+${cur === 'badges' || cur === 'titles' ? `<p class="muted" style="margin:0">${esc(t(cur === 'badges' ? 'badges.hint' : 'ti.hint'))}</p>` : ''}
+      <div class="rw-wrap${S.rwAll ? ' all' : ''}">${body}</div>${cur !== 'titles' && cur !== 'badges' && !S.rwAll ? `<button type="button" class="btn subtle block" id="rwAll">${S.lang === 'en' ? 'See all' : 'Voir tout'} (${tabs[cur][1]})</button>` : ''}`;
+if ($('#rwAll')) $('#rwAll').onclick = () => { S.rwAll = true; SFX.play('select'); renderProfile(); };
 $('#profProgress').onclick = openClimb;
 $('#profShare').onclick = () => openPlayerCard();
 $('#ascentCard').onclick = openAscent;
@@ -1201,10 +1314,10 @@ if (!titlesEarned().includes(x)) { SFX.play('error'); toast(L(x, 'd')); return; 
 S.title = x.id; save(); SFX.play('equip'); toast(t('ti.equipped') + ' : ' + L(x, '')); renderProfile();
 });
 bindCode(view);
-view.querySelectorAll('[data-ptab]').forEach(b => b.onclick = () => { S.profTab = b.dataset.ptab; saveUI(); renderProfile(); });
+view.querySelectorAll('[data-ptab]').forEach(b => b.onclick = () => { S.profTab = b.dataset.ptab; S.rwAll = false; saveUI(); renderProfile(); });
 view.querySelectorAll('[data-rw]').forEach(b => b.onclick = () => {
 const [kind, id] = b.dataset.rw.split(':');
-if (!isUnlocked(kind, id, lvl)) { SFX.play('error'); toast(t('rw.locked', { n: reqLevel(kind, id) })); return; }
+if (!isUnlocked(kind, id, lvl)) { SFX.play('error'); toast(lockTxt(kind, id)); return; }
 const equip = () => {
 if (kind === 'avatar') { S.avatar = id; S.photo = ''; }
 if (kind === 'frame') S.frame = id;
@@ -1226,6 +1339,7 @@ view.innerHTML = `<h2 style="font-size:1.9rem;text-transform:uppercase">${esc(t(
           <input type="file" id="setPhoto" accept="image/*" hidden></div>
         <div class="field">${esc(t('s.lang'))}<div class="chips"><button type="button" class="chip" data-lang="fr" aria-pressed="${S.lang === 'fr'}">Français</button><button type="button" class="chip" data-lang="en" aria-pressed="${S.lang === 'en'}">English</button></div></div>
         <div class="field">${esc(t('s.sound'))}<div class="chips"><button type="button" class="chip" data-sound="on" aria-pressed="${S.sound !== false}">${esc(t('s.sound.on'))}</button><button type="button" class="chip" data-sound="off" aria-pressed="${S.sound === false}">${esc(t('s.sound.off'))}</button></div></div>
+        ${navigator.audioSession && S.sound !== false ? `<div class="field">${esc(t('s.mix'))}<div class="chips"><button type="button" class="chip" data-mix="mix" aria-pressed="${!S.soundLoud}">${esc(t('s.mix.on'))}</button><button type="button" class="chip" data-mix="loud" aria-pressed="${!!S.soundLoud}">${esc(t('s.mix.loud'))}</button></div><small class="muted">${esc(t(S.soundLoud ? 's.mix.loud.d' : 's.mix.on.d'))}</small></div>` : ''}
         <div class="field">${esc(t('s.theme'))}<button type="button" class="theme-row" id="setTheme">${themePreview(themeOf(), 'mini')}<b>${esc(L(themeOf(), ''))}</b><span class="muted">${esc(t('s.theme.change'))} ›</span></button></div>
         <button type="button" class="btn subtle" id="replayIntro">${IC.spark}${esc(t('s.replay'))}</button>
       </section>
@@ -1246,10 +1360,10 @@ $('#setGuide').onclick = () => openGuide();
 $('#setName').onchange = e => {
 const v = e.target.value.trim();
 if (!NAME_RE.test(v)) { toast(t('w.pseudo.err')); e.target.value = S.name; return; }
-if (S.league && S.league.joined && badPseudo(v)) { SFX.play('error'); toast(t('lg.err.pseudo')); e.target.value = S.name; return; }
-S.name = v; save(); toast(t('saved')); scheduleSync();
+S.name = v; save(); toast(t('saved'));
 };
 $('#replayIntro').onclick = async () => { await SFX.unlock(); S.onboarded = false; save(); showWelcome(); };
+view.querySelectorAll('[data-mix]').forEach(b => b.onclick = () => { S.soundLoud = b.dataset.mix === 'loud'; save(); SFX.session(); SFX.play('select'); renderSettings(); });
 view.querySelectorAll('[data-sound]').forEach(b => b.onclick = async () => {
 S.sound = b.dataset.sound === 'on'; save();
 if (S.sound) { await SFX.unlock(); SFX.play('equip'); }
@@ -1273,7 +1387,7 @@ if (f.size > 20e6) throw new Error('size');
 const data = cleanData(JSON.parse(await f.text()));
 if (!data || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.goals)) throw new Error('format');
 delete data.creator;
-S = migrate(Object.assign(fresh(), data, { onboarded: true, tab: 'settings' })); save(); render(); toast(t('s.imported'));
+S = migrate(Object.assign(fresh(), data, { onboarded: true, tab: 'settings' })); dirty(); if (S.xpOff == null) { S.xpOff = xpMigrate(ppStats().total); dirty(); } save(); render(); toast(t('s.imported'));
 } catch (err) { toast(t('s.badfile')); }
 };
 $('#reset').onclick = () => confirmBox(t('s.reset.q'), t('s.reset.ok'), () => {
@@ -1350,6 +1464,22 @@ const s = [...String(p || '').toLowerCase()].map(c => { const i = from.indexOf(c
 const flat = s.replace(/[^a-z]/g, ''), parts = s.split(/[^a-z]+/);
 return BAD_LONG.some(w => flat.includes(w)) || BAD_WORDS.some(w => flat === w || parts.includes(w));
 }
+const PS_A = ['Loup', 'Aigle', 'Lynx', 'Tigre', 'Ours', 'Renard', 'Cerf', 'Puma', 'Requin', 'Dragon', 'Phenix', 'Bison', 'Cobra', 'Lion', 'Orque', 'Hibou', 'Jaguar', 'Yeti', 'Panda', 'Corbeau'];
+const PS_B = ['Rapide', 'Calme', 'Agile', 'Brave', 'Tenace', 'Fort', 'Sage', 'Vif', 'Libre', 'Noble', 'Solide', 'Discret', 'Glacial', 'Lucide', 'Hardi'];
+function randomPseudo() {
+for (let i = 0; i < 30; i++) {
+const r = new Uint32Array(3); crypto.getRandomValues(r);
+const p = PS_A[r[0] % PS_A.length] + PS_B[r[1] % PS_B.length] + (10 + r[2] % 90);
+if (NAME_RE.test(p) && !badPseudo(p)) return p;
+}
+return 'Grimpeur' + (10 + Math.floor(Math.random() * 90));
+}
+const pseudoOk = p => NAME_RE.test(p || '') && !badPseudo(p);
+function pubName() {
+const lg = league();
+if (!pseudoOk(lg.pseudo)) { lg.pseudo = lg.joined && pseudoOk(S.name) ? S.name : randomPseudo(); save(); }
+return lg.pseudo;
+}
 const NET = (() => {
 const cfg = window.PEAKMIND_CONFIG || {};
 const url = String(cfg.supabaseUrl || '').trim().replace(/\/+$/, ''), key = String(cfg.supabaseAnonKey || '').trim();
@@ -1400,7 +1530,7 @@ const lg = league();
 if (!NET.ready() || !lg.joined || creatorOn()) return false;
 if (!force && Date.now() - (lg.lastSync || 0) < 60000) return false;
 const st = ppStats();
-const res = await NET.rpc('pm_sync', { p_pseudo: S.name, p_avatar: avatarOf(), p_frame: frameOf(), p_xp: st.total, p_xp_week: st.week, p_week: weekStart(), p_code: lg.code });
+const res = await NET.rpc('pm_sync', { p_pseudo: pubName(), p_avatar: avatarOf(), p_frame: frameOf(), p_xp: st.total, p_xp_week: st.week, p_week: weekStart(), p_code: lg.code });
 const row = Array.isArray(res) ? res[0] : res;
 if (row && CODE_RE.test(row.code || '')) lg.code = row.code;
 lg.lastSync = Date.now(); lg.err = ''; save();
@@ -1460,7 +1590,7 @@ const lg = league(), st = ppStats(), online = NET.ready();
 const scopes = ['world', 'week', 'friends'], scope = scopes.includes(lg.scope) ? lg.scope : 'world';
 const cache = lg.cache[scope], rows = cache ? cache.rows : null, mine = rows && rows.find(r => r.me);
 let html = `<div class="page-head"><h2>${esc(t('tab.league'))}</h2>${online && lg.joined ? `<span class="live-dot">${esc(t('lg.live'))}</span>` : ''}</div>`;
-html += `<section class="card lb-me">${rankEmblem(st.rank, 'md')}<div class="lvl-info"><b class="num">${esc(S.name || t('hello.anon'))}</b>
+html += `<section class="card lb-me">${rankEmblem(st.rank, 'md')}<div class="lvl-info"><b class="num">${esc(online && lg.joined ? pubName() : (S.name || t('hello.anon')))}</b>
       <span class="rank-name">${esc(L(st.rank, ''))} · ${esc(t('lvl.short', { n: st.level }))}</span>
       <span class="muted num">${nf(st.total)} XP · ${esc(t('pp.week', { n: nf(st.week) }))}</span></div>
       <div class="lb-place"><b class="num">${online && lg.joined && mine ? '#' + mine.pos : '—'}</b><small>${esc(t('lg.' + scope))}</small></div></section>`;
@@ -1486,22 +1616,23 @@ let list = '', prev = 0;
 for (const r of rows) { if (prev && r.pos > prev + 1) list += '<div class="lb-gap" aria-hidden="true">• • •</div>'; list += lbRow(r, scope); prev = r.pos; }
 html += `<div class="lb">${list}</div>`;
 }
+html += `<button type="button" class="btn subtle block" id="lgRename">${esc(t('lg.ps.btn', { p: pubName() }))}</button>`;
 html += `<button type="button" class="btn danger block" id="lgLeave">${esc(t('lg.leave'))}</button>`;
 }
 view.innerHTML = html;
 bindCode(view);
 if ($('#lgJoin')) $('#lgJoin').onclick = joinLeague;
 if ($('#lgLeave')) $('#lgLeave').onclick = () => confirmBox(t('lg.leave.q'), t('lg.leave.ok'), leaveLeague);
+if ($('#lgRename')) $('#lgRename').onclick = openPseudo;
 view.querySelectorAll('[data-lgscope]').forEach(b => b.onclick = () => { lg.scope = b.dataset.lgscope; save(); renderLeague(); });
 view.querySelectorAll('[data-pid]').forEach(b => b.onclick = () => { const r = (rows || []).find(x => x.pid === b.dataset.pid); if (r) openPlayer(r, scope); });
 if ($('#lgAdd')) $('#lgAdd').onsubmit = e => { e.preventDefault(); addFriend($('#lgCode').value); };
 if (online && lg.joined && (!cache || Date.now() - cache.at > 30000)) leagueLoad(scope);
 }
 async function joinLeague() {
-const lg = league();
-if (badPseudo(S.name) || !NAME_RE.test(S.name || '')) { lg.err = t('lg.err.pseudo'); SFX.play('error'); save(); renderLeague(); return; }
+const lg = league(); pubName();
 const btn = $('#lgJoin'); if (btn) { btn.disabled = true; btn.textContent = t('lg.loading'); }
-lg.joined = true;
+lg.joined = true; lg.optOut = false;
 try { await leagueSync(true); SFX.play('rankUp'); toast(t('lg.joined')); lg.cache = {}; leagueLoad(lg.scope || 'world', true); }
 catch (e) { lg.joined = false; lg.err = netErr(e); SFX.play('error'); }
 save(); renderLeague();
@@ -1511,10 +1642,49 @@ const lg = league();
 try {
 await NET.rpc('pm_leave', {});
 NET.forget();
-Object.assign(lg, { joined: false, cache: {}, lastSync: 0, err: '', code: newFriendCode() });
+Object.assign(lg, { joined: false, optOut: true, autoNew: false, cache: {}, lastSync: 0, err: '', code: newFriendCode() });
 SFX.play('down'); toast(t('lg.left'));
 } catch (e) { lg.err = netErr(e); SFX.play('error'); }
 save(); render();
+}
+let autoTried = false;
+async function autoJoinLeague() {
+if (autoTried || !NET.ready() || !S.onboarded || creatorOn()) return;
+if (devHost() && !/[?&]league\b/.test(location.search)) return;
+const lg = league(); if (lg.joined || lg.optOut) return;
+autoTried = true; pubName(); lg.joined = true;
+try { await leagueSync(true); lg.autoNew = true; lg.cache = {}; save(); maybeLeagueNotice(); if (S.tab === 'league') renderLeague(); }
+catch (e) { lg.joined = false; save(); }
+}
+function maybeLeagueNotice(tries = 0) {
+const lg = league(); if (!lg.autoNew || !lg.joined) return;
+if (!sheet.hidden || !welcomeEl.hidden) { if (tries < 40) setTimeout(() => maybeLeagueNotice(tries + 1), 2500); return; }
+SFX.play('rankUp');
+openSheet(`<div class="sheet-head"><h2>🏆 ${esc(t('lg.auto.t'))}</h2></div>
+      <p style="margin:0">${esc(t('lg.auto.d', { p: pubName() }))}</p>
+      <p class="muted" style="margin:0;font-size:.9rem">${esc(t('lg.pub'))}</p>
+      <p class="muted" style="margin:0;font-size:.9rem">${esc(t('lg.auto.minor'))}</p>
+      <button type="button" class="btn block" id="lgaOk">${esc(t('lg.auto.ok'))}</button>
+      <div class="grid-2"><button type="button" class="btn subtle" id="lgaName">${esc(t('lg.auto.rename'))}</button><button type="button" class="btn subtle" id="lgaOut">${esc(t('lg.auto.out'))}</button></div>`, true);
+const done = () => { lg.autoNew = false; save(); };
+$('#lgaOk').onclick = () => { done(); SFX.play('select'); closeSheet(); };
+$('#lgaName').onclick = () => { done(); openPseudo(); };
+$('#lgaOut').onclick = () => { done(); closeSheet(); leaveLeague(); };
+}
+function openPseudo() {
+const lg = league();
+openSheet(`<div class="sheet-head"><h2>${esc(t('lg.ps.t'))}</h2><button type="button" class="icon-btn" id="closeP" aria-label="${esc(t('close'))}">✕</button></div>
+      <p class="muted" style="margin:0">${esc(t('lg.ps.d'))}</p>
+      <div class="inline-form"><input id="lgPs" maxlength="20" autocomplete="off" spellcheck="false" value="${esc(pubName())}" aria-label="${esc(t('lg.ps.t'))}"><button type="button" class="btn subtle" id="lgDice">${esc(t('lg.ps.dice'))}</button></div>
+      <p class="lb-err" id="lgPsErr" role="alert"></p>
+      <button type="button" class="btn block" id="lgPsOk">${esc(t('lg.ps.save'))}</button>`);
+$('#closeP').onclick = closeSheet;
+$('#lgDice').onclick = () => { $('#lgPs').value = randomPseudo(); SFX.play('tick'); };
+$('#lgPsOk').onclick = () => {
+const v = $('#lgPs').value.trim();
+if (!pseudoOk(v)) { $('#lgPsErr').textContent = t(NAME_RE.test(v) ? 'lg.ps.bad' : 'lg.ps.err'); SFX.play('error'); return; }
+lg.pseudo = v; save(); SFX.play('select'); toast(t('saved')); closeSheet(); scheduleSync(); render();
+};
 }
 async function addFriend(raw) {
 const code = String(raw || '').toUpperCase().replace(/\s+/g, '').replace(/^PM(?=[A-Z0-9]{4})/, 'PM-').replace(/^(PM-[A-Z0-9]{4})(?=[A-Z0-9]{3}$)/, '$1-');
@@ -1727,11 +1897,19 @@ markActivity(); save(); checkBadges(); closeSheet(); render();
 rewardFeedback(before, t('run.saved', { km: nf(km, 2) }));
 };
 }
-const PP = { habit: 10, entry: 10, clean: 5, steps: 10, run: 10, log: 5, wish: 10, lesson: 15, badge: 50, cap: 150 };
-const CAP_FROM = '2026-11-07', capOn = k => k >= CAP_FROM ? PP.cap : 100;
+const PP = { habit: 10, entry: 10, clean: 5, steps: 10, run: 10, log: 5, wish: 10, lesson: 15, badge: 50, cap: 120 };
+const CAP_FROM = '2026-11-07', capOn = k => k < CAP_FROM ? 100 : S.cap2 && k >= S.cap2 ? PP.cap : 150;
 const MAX_LVL = 100;
-const xpForLevel = n => Math.round(100 * (n - 1) + 2.5 * (n - 1) ** 2);
+const xpForLevel = n => 80 * (n - 1) + 4 * (n - 1) ** 2;
 const levelOf = xp => { let n = 1; while (n < MAX_LVL && xp >= xpForLevel(n + 1)) n++; return n; };
+const lvXp = xp => Math.max(0, xp + (+S.xpOff || 0));
+function xpMigrate(total) {
+const old = n => Math.round(100 * (n - 1) + 2.5 * (n - 1) ** 2);
+let lv = 1; while (lv < MAX_LVL && total >= old(lv + 1)) lv++;
+const pos = lv >= MAX_LVL ? xpForLevel(MAX_LVL) + (total - old(MAX_LVL))
+: xpForLevel(lv) + (total - old(lv)) / (old(lv + 1) - old(lv)) * (xpForLevel(lv + 1) - xpForLevel(lv));
+return Math.floor(pos) - total;
+}
 const RANKS = [
 { lvl: 1, id: 'iron', fr: 'Fer', en: 'Iron', c: ['#4a525e', '#a4adb9'] },
 { lvl: 10, id: 'bronze', fr: 'Bronze', en: 'Bronze', c: ['#6e3f17', '#e4a96b'] },
@@ -1750,7 +1928,9 @@ const nextRank = lvl => RANKS.find(r => r.lvl > lvl);
 const FRAME_X = [
 { id: 'ice', lvl: 5, fr: 'Givre', en: 'Frost' }, { id: 'sakura', lvl: 12, fr: 'Sakura', en: 'Sakura' }, { id: 'neon', lvl: 15, fr: 'Néon', en: 'Neon' },
 { id: 'ember', lvl: 25, fr: 'Braise', en: 'Ember' }, { id: 'circuit', lvl: 35, fr: 'Circuit', en: 'Circuit' }, { id: 'aurora', lvl: 45, fr: 'Aurore', en: 'Aurora' },
-{ id: 'royal', lvl: 65, fr: 'Royal', en: 'Royal' }, { id: 'cosmic', lvl: 85, fr: 'Cosmique', en: 'Cosmic' }
+{ id: 'royal', lvl: 65, fr: 'Royal', en: 'Royal' }, { id: 'cosmic', lvl: 85, fr: 'Cosmique', en: 'Cosmic' },
+{ id: 'install', lvl: 0, fr: 'Pionnier', en: 'Pioneer', inst: true },
+{ id: 'dark', lvl: 0, fr: 'Ténèbres', en: 'Darkness', loot: 'f_dark' }, { id: 'goldchest', lvl: 0, fr: 'Légende du coffre', en: 'Chest legend', loot: 'f_gold' }
 ];
 const FRAMES = ['none', ...[...RANKS.slice(1), ...FRAME_X].sort((a, b) => a.lvl - b.lvl).map(r => r.id)];
 const THEMES = [
@@ -1785,18 +1965,38 @@ const THEMES = [
 { id: 'cyber', lvl: 65, fr: 'Cyber', en: 'Cyber', mode: 'dark', fx: 'holo', bg: '#07040d', s1: '#100a1c', s2: '#170f29', line: '#2a1b45', ink: '#f5efff', muted: '#a497c4', a: '#f9f871', a2: '#ff2bd6', h1: '#0c0518', h2: '#2a0a40' },
 { id: 'abyss', lvl: 75, fr: 'Abysses', en: 'Abyss', mode: 'dark', bg: '#02060c', s1: '#071222', s2: '#0b1a30', line: '#13294a', ink: '#e3f1ff', muted: '#84a0c0', a: '#00d1ff', a2: '#0066ff', h1: '#010812', h2: '#04204a' },
 { id: 'phoenix', lvl: 85, fr: 'Phénix', en: 'Phoenix', mode: 'dark', bg: '#0f0705', s1: '#1a0d09', s2: '#25130d', line: '#3a1d12', ink: '#fff2e8', muted: '#c09a86', a: '#ff7a1a', a2: '#ffd36b', h1: '#1a0703', h2: '#4a1606' },
-{ id: 'eclipse', lvl: 95, fr: 'Éclipse', en: 'Eclipse', mode: 'dark', bg: '#040404', s1: '#0d0c0a', s2: '#161410', line: '#29251c', ink: '#f7f2e6', muted: '#a39b88', a: '#fff4d6', a2: '#ffb347', h1: '#070604', h2: '#201a0e' }
+{ id: 'eclipse', lvl: 95, fr: 'Éclipse', en: 'Eclipse', mode: 'dark', bg: '#040404', s1: '#0d0c0a', s2: '#161410', line: '#29251c', ink: '#f7f2e6', muted: '#a39b88', a: '#fff4d6', a2: '#ffb347', h1: '#070604', h2: '#201a0e' },
+{ id: 'tenebres', lvl: 100, loot: 'th_dark', fr: 'Ténèbres', en: 'Darkness', mode: 'dark', fx: 'aura', bg: '#07040a', s1: '#120a16', s2: '#1a0f20', line: '#2c1733', ink: '#f5ecf3', muted: '#a68ea6', a: '#ff3b5c', a2: '#8a2be2', h1: '#0b0410', h2: '#2a0718' },
+{ id: 'couronne', lvl: 100, loot: 'th_crown', fr: 'Couronne', en: 'Crown', mode: 'dark', fx: 'aura', bg: '#080705', s1: '#13110b', s2: '#1b1810', line: '#332a14', ink: '#fbf4e2', muted: '#b5a78a', a: '#ffd36b', a2: '#fff1c2', h1: '#0e0b04', h2: '#2e2208' },
+{ id: 'portail', lvl: 100, loot: 'th_gate', fr: 'Portail bleu', en: 'Blue Gate', mode: 'dark', bg: '#030812', s1: '#08142a', s2: '#0d1d3a', line: '#183058', ink: '#e8f4ff', muted: '#8fa8c8', a: '#3fb6ff', a2: '#7b5cff', h1: '#041024', h2: '#0b2a5a' },
+{ id: 'eveil', lvl: 100, loot: 'th_wake', fr: 'Éveil', en: 'Awakening', mode: 'dark', bg: '#05070c', s1: '#0c111b', s2: '#131a28', line: '#22304a', ink: '#f2f7ff', muted: '#9aa8c0', a: '#9fe8ff', a2: '#ffffff', h1: '#070b16', h2: '#18304f' },
+{ id: 'nuitsakura', lvl: 100, loot: 'th_sakura', fr: 'Nuit de sakura', en: 'Sakura Night', mode: 'dark', bg: '#0b0610', s1: '#160c1a', s2: '#1f1224', line: '#351f3c', ink: '#fbeef6', muted: '#b897ad', a: '#ff8fc4', a2: '#b98cff', h1: '#12081a', h2: '#3a1338' },
+{ id: 'acier', lvl: 100, loot: 'th_blade', fr: 'Acier du sabre', en: 'Blade Steel', mode: 'dark', bg: '#08090b', s1: '#111317', s2: '#181b21', line: '#2a2f38', ink: '#eef0f4', muted: '#9aa1ad', a: '#d9dee8', a2: '#e8334f', h1: '#0d0f13', h2: '#2a1218' },
+{ id: 'porterouge', lvl: 100, loot: 'th_redgate', fr: 'Porte rouge', en: 'Red Gate', mode: 'dark', fx: 'aura', bg: '#0c0405', s1: '#170809', s2: '#210c0d', line: '#3d1416', ink: '#fff0ee', muted: '#c09490', a: '#ff3b30', a2: '#ff9a3c', h1: '#160506', h2: '#4a0b0d' },
+{ id: 'rangs', lvl: 100, loot: 'th_srank', fr: 'Rang S', en: 'S-Rank', mode: 'dark', fx: 'aura', bg: '#08060f', s1: '#110c1c', s2: '#191127', line: '#2e2146', ink: '#f6f0ff', muted: '#a99bc4', a: '#b46bff', a2: '#ffd36b', h1: '#0e0820', h2: '#34146a' },
+{ id: 'spectre', lvl: 100, loot: 'th_wraith', fr: 'Spectre', en: 'Wraith', mode: 'dark', fx: 'aura', bg: '#040608', s1: '#0a0f13', s2: '#10171d', line: '#1d2b35', ink: '#e9fbff', muted: '#8aa7b3', a: '#4df0ff', a2: '#6a3cff', h1: '#050a10', h2: '#102a3a' },
+{ id: 'dragon', lvl: 100, loot: 'th_dragon', fr: 'Souffle du dragon', en: 'Dragon Breath', mode: 'dark', fx: 'aura', bg: '#0d0703', s1: '#180d06', s2: '#22130a', line: '#3e2412', ink: '#fff4e8', muted: '#c4a284', a: '#ff7a1a', a2: '#ffd23f', h1: '#170a03', h2: '#4d1d05' },
+{ id: 'souverain', lvl: 100, loot: 'th_sovereign', fr: 'Souverain', en: 'Sovereign', mode: 'dark', fx: 'aura', bg: '#050309', s1: '#0d0915', s2: '#140e20', line: '#2a1d40', ink: '#f7f2ff', muted: '#a597bd', a: '#7d4dff', a2: '#ffd36b', h1: '#0a0518', h2: '#2a0f5c' },
+{ id: 'systeme', lvl: 100, loot: 'th_system', fr: 'Le Système', en: 'The System', mode: 'dark', fx: 'holo', bg: '#02060d', s1: '#071224', s2: '#0b1a33', line: '#15305a', ink: '#e8f6ff', muted: '#86a6c8', a: '#2fa8ff', a2: '#00e5ff', h1: '#030b1c', h2: '#0b2a66' },
+{ id: 'aurorenoire', lvl: 100, loot: 'th_blackaurora', fr: 'Aurore noire', en: 'Black Aurora', mode: 'dark', fx: 'aura', bg: '#030405', s1: '#0a0c0e', s2: '#101317', line: '#1f262c', ink: '#eefcf6', muted: '#8fb3a6', a: '#3cffb0', a2: '#b06bff', h1: '#04070a', h2: '#0e2c2a' }
 ].sort((a, b) => a.lvl - b.lvl);
 const AV_LVL = { flame: 2, rocket: 3, dumbbell: 4, heart: 5, shield: 6, moon: 7, compass: 9, kettlebell: 11, sword: 13, trend: 14, wave: 16, book: 17,
 leaf: 20, diamond: 24, controller: 27, crown: 33, headphones: 36, planet: 44, summit: 55, atom: 60, star: 75, infinity: 90 };
 const REWARDS = [
 ...Object.entries(AV_LVL).map(([id, lvl]) => ({ kind: 'avatar', id, lvl })),
 ...RANKS.slice(1).map(r => ({ kind: 'frame', id: r.id, lvl: r.lvl })),
-...FRAME_X.map(f => ({ kind: 'frame', id: f.id, lvl: f.lvl })),
-...THEMES.filter(th => th.lvl > 1).map(th => ({ kind: 'theme', id: th.id, lvl: th.lvl }))
+...FRAME_X.filter(f => !f.inst && !f.loot).map(f => ({ kind: 'frame', id: f.id, lvl: f.lvl })),
+...THEMES.filter(th => th.lvl > 1 && !th.loot).map(th => ({ kind: 'theme', id: th.id, lvl: th.lvl }))
 ].sort((a, b) => a.lvl - b.lvl);
 const reqLevel = (kind, id) => (REWARDS.find(r => r.kind === kind && r.id === id) || { lvl: 1 }).lvl;
-const isUnlocked = (kind, id, lvl) => creatorAll() || (lvl ?? ppStats().level) >= reqLevel(kind, id);
+const special = (kind, id) => kind === 'frame' ? FRAME_X.find(f => f.id === id && (f.inst || f.loot)) : kind === 'theme' ? THEMES.find(th => th.id === id && th.loot) : null;
+const isUnlocked = (kind, id, lvl) => {
+if (creatorAll()) return true;
+const sp = special(kind, id);
+if (sp) return sp.inst ? !!S.installed : lootHas(sp.loot);
+return (lvl ?? ppStats().level) >= reqLevel(kind, id);
+};
+const lockTxt = (kind, id) => { const sp = special(kind, id); return sp ? t(sp.inst ? 'in.fr.lock' : 'lt.lock') : t('rw.locked', { n: reqLevel(kind, id) }); };
 const byLvl = (kind, list, id = x => x) => list.slice().sort((a, b) => reqLevel(kind, id(a)) - reqLevel(kind, id(b)));
 const frameName = id => id === 'none' ? t('fm.none') : L(RANKS.find(r => r.id === id) || FRAME_X.find(f => f.id === id) || RANKS[0], '');
 const themeName = id => L(THEMES.find(th => th.id === id) || THEMES[0], '');
@@ -1847,6 +2047,7 @@ const e = qq.log[k], x = (e.d || []).reduce((s, d) => s + (d.xp || 0), 0) + (e.b
 if (x > 0) add(k, x);
 }
 for (const dg of S.dg || []) for (const f of dg.floors || []) if (f.done && f.done <= tk) add(f.done, f.xp || 0);
+const dl = (S.loot && S.loot.dlog) || {}; for (const k in dl) if (k <= tk) add(k, Math.max(0, +dl[k] || 0));
 const days = {};
 for (const k in act) days[k] = Math.min(capOn(k), act[k]);
 for (const b of BADGES) { const k = S.badges[b.id]; if (k) days[k] = (days[k] || 0) + PP.badge; }
@@ -1859,10 +2060,10 @@ function ppCompute() {
 const days = ppByDay(), ws = weekStart();
 let total = 0, week = 0;
 for (const k in days) { total += days[k]; if (k >= ws) week += days[k]; }
-const level = levelOf(total), max = level >= MAX_LVL, from = xpForLevel(level), to = max ? from : xpForLevel(level + 1);
-return { total, week, days, level, from, to, max, rank: rankOf(level),
-p: max ? 1 : (total - from) / (to - from),
-next: max ? t('lvl.max') : t('lvl.next', { n: nf(to - total), l: level + 1 }) };
+const e = lvXp(total), level = levelOf(e), max = level >= MAX_LVL, from = xpForLevel(level), to = max ? from : xpForLevel(level + 1);
+return { total, week, days, level, from, to, max, rank: rankOf(level), in: max ? 0 : e - from, need: to - from,
+p: max ? 1 : (e - from) / (to - from),
+next: max ? t('lvl.max') : t('lvl.next', { n: nf(to - e), l: level + 1 }) };
 }
 let lastPt = null;
 document.addEventListener('pointerdown', e => { lastPt = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
@@ -1884,6 +2085,7 @@ checkLevelUp(st, 600);
 }
 function checkLevelUp(st = ppStats(), delay = 0) {
 checkSummit(st);
+lootTick();
 if (S.levelSeen == null) { S.levelSeen = st.level; save(); return; }
 if (S.onboarded && st.level > S.levelSeen) {
 const from = S.levelSeen; S.levelSeen = st.level; save();
@@ -1895,7 +2097,7 @@ function climbCard() {
 const st = ppStats(), next = REWARDS.find(r => r.lvl > st.level);
 return `<button type="button" class="card climb" id="climbCard">
       <div class="row between"><span class="section-title" style="margin:0">${esc(t('lvl.title'))}</span><span class="pp-week num">${esc(t('pp.week', { n: nf(st.week) }))}</span></div>
-      <div class="lvl-row">${rankEmblem(st.rank, 'md')}<div class="lvl-info"><b class="num">${esc(t('lvl.n', { n: st.level }))}</b><span class="rank-name">${esc(L(st.rank, ''))}</span><span class="muted num">${st.max ? esc(t('lvl.total', { n: nf(st.total) })) : `${nf(st.total)} / ${nf(st.to)} XP`}</span></div></div>
+      <div class="lvl-row">${rankEmblem(st.rank, 'md')}<div class="lvl-info"><b class="num">${esc(t('lvl.n', { n: st.level }))}</b><span class="rank-name">${esc(L(st.rank, ''))}</span><span class="muted num">${st.max ? esc(t('lvl.total', { n: nf(st.total) })) : `${nf(st.in)} / ${nf(st.need)} XP`}</span></div></div>
       <div class="bar"><i style="width:${(st.p * 100).toFixed(1)}%"></i></div>
       <span class="muted climb-next">${esc(st.next)}${next ? ' · ' + esc(t('lvl.nextReward', { l: next.lvl, name: rewardName(next) })) : ''}</span>
       <span class="muted climb-next">${rankEmblem(nextRank(st.level) || st.rank, 'xs')} ${esc(nextRankLine(st.level))}</span>
@@ -2174,7 +2376,7 @@ Object.assign(T.fr, {
 'q.reroll': 'Changer', 'q.reroll.none': 'Un seul changement par jour. Reviens demain !', 'q.rerolled': 'Nouvelle quête !',
 'q.diff1': 'Facile', 'q.diff2': 'Normal', 'q.diff3': 'Difficile', 'q.trial': 'Épreuve de rang',
 'q.bonus': '+{n} XP bonus si tu finis les 3', 'q.bonus.ok': 'Journée parfaite · +{n} XP bonus', 'q.count': '{d}/{n}',
-'q.why': 'Choisies pour toi · difficulté {t}/5', 'q.why.up': 'Difficulté {t}/5 : elle monte, tu réussis {p} % de tes quêtes', 'q.why.down': 'Difficulté {t}/5 : allégée pour t\'aider à reprendre le rythme',
+'q.why': 'Difficulté {t}/5 · elle monte avec ton niveau', 'q.why.up': 'Difficulté {t}/5 · relevée : tu réussis {p} % de tes quêtes', 'q.why.down': 'Difficulté {t}/5 · allégée pour reprendre le rythme',
 'q.near': 'Plus que {n} XP avant le niveau {l} : une quête et c\'est bon !', 'q.complete': 'Quête accomplie · +{n} XP', 'q.complete.cap': 'Quête accomplie · limite d\'XP du jour atteinte', 'q.undone': 'Quête remise à faire',
 'q.week.done': 'Défi de la semaine réussi ! +{n} XP', 'q.week.left': 'jusqu\'à dimanche soir · +{n} XP', 'q.week.ok': 'Réussi · +{n} XP',
 'q.focus': 'Mode focus', 'q.focus.d': 'Téléphone de côté, une seule tâche. Chaque session compte pour le défi focus.', 'q.focus.done': 'Session focus terminée. Bien joué !', 'q.focus.today': '{n} session(s) aujourd\'hui',
@@ -2190,7 +2392,7 @@ Object.assign(T.en, {
 'q.reroll': 'Swap', 'q.reroll.none': 'Only one swap a day. Come back tomorrow!', 'q.rerolled': 'New quest!',
 'q.diff1': 'Easy', 'q.diff2': 'Normal', 'q.diff3': 'Hard', 'q.trial': 'Rank trial',
 'q.bonus': '+{n} bonus XP if you finish all 3', 'q.bonus.ok': 'Perfect day · +{n} bonus XP', 'q.count': '{d}/{n}',
-'q.why': 'Picked for you · difficulty {t}/5', 'q.why.up': 'Difficulty {t}/5: going up, you complete {p}% of your quests', 'q.why.down': 'Difficulty {t}/5: eased to help you get back on track',
+'q.why': 'Difficulty {t}/5 · rises with your level', 'q.why.up': 'Difficulty {t}/5 · raised: you complete {p}% of your quests', 'q.why.down': 'Difficulty {t}/5 · eased to get back on track',
 'q.near': 'Only {n} XP to level {l}: one quest and you\'re there!', 'q.complete': 'Quest complete · +{n} XP', 'q.complete.cap': 'Quest complete · daily XP limit reached', 'q.undone': 'Quest back to do',
 'q.week.done': 'Weekly challenge complete! +{n} XP', 'q.week.left': 'until Sunday night · +{n} XP', 'q.week.ok': 'Done · +{n} XP',
 'q.focus': 'Focus mode', 'q.focus.d': 'Phone away, one task only. Every session counts toward the focus challenge.', 'q.focus.done': 'Focus session done. Nice work!', 'q.focus.today': '{n} session(s) today',
@@ -2221,18 +2423,32 @@ sportish: ints.has('sport') || (S.runs || []).length > 0, study: ints.has('study
 saver: S.goals.some(g => g.type === 'save' && pct(g) < 1), nosave: !S.goals.some(g => g.type === 'save'),
 nobudget: !mon().budget, lessons: MO.LESSONS.some(l => !mon().lessons[l.id]) } };
 }
+const TIER_STEPS = [[1, 1.4], [8, 2], [20, 3], [36, 4], [55, 5]];
+function tierOfLevel(lvl) {
+for (let i = TIER_STEPS.length - 1; i >= 0; i--) {
+const [l0, t0] = TIER_STEPS[i], nx = TIER_STEPS[i + 1];
+if (lvl >= l0) return nx ? t0 + (lvl - l0) / (nx[0] - l0) : t0;
+}
+return 1;
+}
 function questTier(lvl) {
-const base = lvl < 10 ? 1 : lvl < 25 ? 2 : lvl < 45 ? 3 : lvl < 70 ? 4 : 5, log = qs().log;
+const tfl = tierOfLevel(lvl), base = Math.floor(tfl), log = qs().log;
 let a = 0, d = 0;
 for (let i = 1; i <= 14; i++) { const e = log[dkey(addDays(new Date(), -i))]; if (e) { a += e.a || 0; d += (e.d || []).filter(x => x.c !== 'tuto').length; } }
 const prev = (qs().tier && qs().tier.adj) || 0;
 let adj = 0;
 if (a >= 6) {
 const r = d / a;
-if (r >= .75 || (prev > 0 && r >= .6)) adj = 1;
+if (r >= .7 || (prev > 0 && r >= .55)) adj = 1;
 else if (r < .4 || (prev < 0 && r < .55)) adj = -1;
 }
-return { tier: Math.max(1, Math.min(5, base + adj)), adj, rate: a ? d / a : null };
+return { tier: Math.max(1, Math.min(5, base + adj)), tf: Math.max(1, Math.min(5, tfl + adj)), adj, rate: a ? d / a : null };
+}
+function tierValue(arr, tf, secs) {
+const f = Math.max(1, Math.min(5, tf)), i0 = Math.floor(f) - 1, i1 = Math.min(4, i0 + 1), v = arr[i0] + (arr[i1] - arr[i0]) * (f - Math.floor(f));
+if (typeof arr[i0] !== 'number' || typeof arr[i1] !== 'number') return arr[Math.round(f) - 1];
+const step = secs ? 5 : v >= 1000 ? 100 : v >= 200 ? 10 : v >= 45 ? 5 : 1;
+return Math.max(step, Math.round(v / step) * step);
 }
 const CAT_BASE = { sport: .9, mind: .9, health: .6, study: .5, social: .3, quit: .3, money: .2 };
 function catWeights(ctx) {
@@ -2249,9 +2465,9 @@ if (dow === 0) { w.mind *= 1.3; w.health *= 1.1; }
 return w;
 }
 function makeQuest(tp, tier, diff, rnd) {
-const i = Math.max(0, Math.min(4, tier - 1));
+const i = Math.max(0, Math.min(4, Math.round(tier) - 1));
 const q = { id: uid(), t: tp.id, c: tp.c, k: tp.k, diff, xp: QXP[diff] || 10 };
-if (tp.n) q.n = tp.n[i]; if (tp.m) q.m = tp.m[i];
+if (tp.n) q.n = tierValue(tp.n, tier, tp.k === 't' && tp.u === 's'); if (tp.m) q.m = Math.round(tierValue(tp.m, tier));
 if (tp.fr.includes('{s}')) q.s = Math.floor(rnd() * Q.SUBJECTS.length);
 if (tp.fr.includes('{l}')) q.l = Math.floor(rnd() * Q.LANGS.length);
 if (tp.fr.includes('{h}')) q.h = i;
@@ -2324,7 +2540,7 @@ let qq = null, tries = 0;
 while (!qq && tries++ < 8) {
 const left = cats.filter(c => !used.has(c)); if (!left.length) used.clear();
 const cat = pickW(rnd, left.length ? left : cats, c => w[c]); used.add(cat);
-qq = drawFrom(cat, ctx, Math.max(1, Math.min(5, tier + diff - 2)), diff, rnd, avoid);
+qq = drawFrom(cat, ctx, Math.max(1, Math.min(5, tierInfo.tf + diff - 2)), diff, rnd, avoid);
 }
 if (!qq) continue;
 avoid.add(qq.t);
@@ -2341,15 +2557,16 @@ save();
 function rerollQuest(id) {
 const q = qs(), i = (q.list || []).findIndex(x => x.id === id);
 if (i < 0 || q.list[i].done) return;
-if ((q.rerolls || 0) >= 1) { SFX.play('error'); toast(t('q.reroll.none')); return; }
-const old = q.list[i], ctx = questCtx(), { tier } = questTier(ctx.lvl), rnd = rngOf(today() + 'r' + Date.now());
+let extra = false;
+if ((q.rerolls || 0) >= 1) { if (S.loot && S.loot.rr > 0) extra = true; else { SFX.play('error'); toast(t('q.reroll.none')); return; } }
+const old = q.list[i], ctx = questCtx(), { tf: tier } = questTier(ctx.lvl), rnd = rngOf(today() + 'r' + Date.now());
 const avoid = new Set(q.list.map(x => x.t).filter(Boolean)); avoid.recent = new Set();
 const w = catWeights(ctx), cats = Object.keys(w).filter(c => c !== old.c && !q.list.some(x => x.c === c));
 let nq = null, tries = 0;
 while (!nq && tries++ < 8) nq = drawFrom(pickW(rnd, cats.length ? cats : Q.CATS, c => w[c] || .2), ctx, Math.max(1, Math.min(5, tier + old.diff - 2)), old.diff, rnd, avoid);
 if (!nq) return;
 if (old.trial) { nq.trial = true; nq.xp = QXP.trial; }
-q.list[i] = nq; q.rerolls = (q.rerolls || 0) + 1;
+q.list[i] = nq; q.rerolls = (q.rerolls || 0) + 1; if (extra) S.loot.rr--;
 (q.hist[today()] || (q.hist[today()] = [])).push(nq.t);
 if (q.timer && q.timer.qid === old.id) q.timer = null;
 save(); SFX.play('equip'); toast(t('q.rerolled')); render();
@@ -2392,8 +2609,11 @@ if (!it || it.done || q.day !== today()) return false;
 const before = ppStats().total;
 it.done = true; it.at = Date.now();
 const e = q.log[q.day] || (q.log[q.day] = { a: q.list.length, d: [] });
-e.d.push({ id: it.t || it.coach, xp: it.xp, c: it.c });
-if (q.list.every(x => x.done) && !e.b) e.b = QXP.bonus;
+e.d.push({ id: it.t || it.coach, xp: it.xp * (lootX2() ? 2 : 1), c: it.c });
+if (q.list.every(x => x.done) && !e.b) {
+e.b = QXP.bonus;
+if (earnFreeze()) setTimeout(() => toast('❄️ ' + t('fz.got', { n: fz().n, m: FZ_MAX })), 2200);
+}
 if (it.k === 't' && it.c === 'study') q.focus[q.day] = (q.focus[q.day] || 0) + 1;
 if (it.c !== 'tuto') markActivity();
 if (it.coach === 'redeem') redeemDone(it);
@@ -2535,27 +2755,30 @@ extra = (bar ? `<div class="bar"><i style="width:${Math.min(100, p[0] / p[1] * 1
 const diffTxt = it.trial ? t('q.trial') : t('q.diff' + it.diff);
 return `<article class="q-item${it.done ? ' done' : ''}${it.trial ? ' trial' : ''}${it.coach === 'redeem' ? ' redeem' : ''}${it.ex ? ' exam' : ''}" data-cat="${it.c}">
       <div class="q-ico" aria-hidden="true">${qIcon(it)}</div>
-      <div class="q-body"><b>${esc(title)}</b><small>${esc(tip)}</small>
-        <div class="q-tags"><span class="q-cat">${esc(t('q.cat.' + it.c))}</span><span class="q-diff d${it.trial ? 4 : it.diff}">${esc(diffTxt)}</span><span class="q-xp num">+${it.xp} XP</span>${!it.done && (q.rerolls || 0) < 1 && it.c !== 'tuto' && it.coach !== 'redeem' && !it.ex ? `<button type="button" class="q-swap" data-qswap="${it.id}" aria-label="${esc(t('q.reroll'))}" title="${esc(t('q.reroll'))}">↻</button>` : ''}</div>
+      <div class="q-body"><b data-qtip="${it.id}" role="button" tabindex="0">${esc(title)}</b><small class="q-tip">${esc(tip)}</small>
+        <div class="q-tags"><span class="q-diff d${it.trial ? 4 : it.diff}">${esc(diffTxt)}</span><span class="q-xp num">+${it.xp * (!it.done && lootX2() ? 2 : 1)} XP</span>${!it.done && ((q.rerolls || 0) < 1 || (S.loot && S.loot.rr > 0)) && it.c !== 'tuto' && it.coach !== 'redeem' && !it.ex ? `<button type="button" class="q-swap" data-qswap="${it.id}" aria-label="${esc(t('q.reroll'))}" title="${esc(t('q.reroll'))}">↻</button>` : ''}</div>
         ${extra}</div>${act}</article>`;
 }
 function questsHtml() {
 if (!S.onboarded) return '';
 const q = qs(), list = q.list || [], d = list.filter(x => x.done).length, e = q.log[today()] || {};
-const st = ppStats(), { tier, adj, rate } = q.tier || questTier(st.level);
+const st = ppStats(), ti = q.tier || questTier(st.level), { adj, rate } = ti, tier = nf(ti.tf || ti.tier, 1);
 const why = adj > 0 ? t('q.why.up', { t: tier, p: Math.round(rate * 100) }) : adj < 0 ? t('q.why.down', { t: tier }) : t('q.why', { t: tier });
 const gap = st.to - st.total, near = !st.max && gap > 0 && gap <= 45 && d < list.length;
 return `<section class="card quests">
       <div class="row between"><span class="section-title" style="margin:0">${esc(t('q.title'))}</span><span class="q-count num">${esc(t('q.count', { d, n: list.length }))}</span></div>
       <p class="muted q-why">${esc(why)}</p>
+      ${lootX2() ? `<p class="q-x2"><span aria-hidden="true">⚡</span> ${esc(t('lt.x2.on', { h: Math.max(1, Math.ceil((S.loot.x2 - Date.now()) / 3600e3)) }))}</p>` : ''}
       <div class="q-list">${list.map(questRow).join('')}</div>
       <div class="q-foot"><span class="${e.b ? 'ok-txt' : 'muted'}">${esc(e.b ? t('q.bonus.ok', { n: e.b }) : t('q.bonus', { n: QXP.bonus }))}</span>
         <button type="button" class="btn subtle q-focus" id="qFocus">⏱ ${esc(q.timer && q.timer.qid === 'free' ? t('q.running', { t: mmss(Math.ceil(timerLeft(q.timer))) }) : t('q.focus'))}</button></div>
+      <p class="q-fz"><span aria-hidden="true">❄️</span> ${esc(t(fz().n >= FZ_MAX ? 'fz.full' : 'fz.count', { n: fz().n, m: Math.max(FZ_MAX, fz().n) }))}</p>
       ${near ? `<p class="q-near">${esc(t('q.near', { n: nf(gap), l: st.level + 1 }))}</p>` : ''}
     </section>`;
 }
 function bindQuests(root = view) {
 const q = qs(), find = id => (q.list || []).find(x => x.id === id);
+root.querySelectorAll('[data-qtip]').forEach(b => b.onclick = () => { const it = b.closest('.q-item'); it.classList.toggle('open'); SFX.play('select'); });
 root.querySelectorAll('[data-qdone]').forEach(b => b.onclick = () => { if (completeQuest(b.dataset.qdone)) { render(); checkLevelUp(ppStats(), 700); } });
 root.querySelectorAll('[data-qundo]').forEach(b => b.onclick = () => undoQuest(b.dataset.qundo));
 root.querySelectorAll('[data-qswap]').forEach(b => b.onclick = () => rerollQuest(b.dataset.qswap));
@@ -2656,10 +2879,7 @@ return `<section class="card urg-card live" id="urgCard">
 }
 const next = u.list.find(x => urgState(x, now) === 'wait'), past = u.list.filter(x => urgState(x, now) !== 'wait'), last = past[past.length - 1];
 const sl = next ? URG.slots[next.si] : null;
-return `<section class="card urg-card idle" id="urgCard">
-      <div class="urg-head"><span class="urg-badge idle">⏳ ${esc(t('u.title'))}</span>${dots}</div>
-      <p class="urg-next">${esc(next ? t('u.next', { a: hhmm(sl[0]), b: hhmm(sl[1]) }) : t('u.none', { a: hhmm(URG.slots[0][0]) }))}</p>
-      ${last ? `<small class="${last.done ? 'ok-txt' : 'urg-miss'}">${esc(last.done ? t('u.last.ok', { n: QXP.urg }) : t('u.last.miss'))}</small>` : `<small class="muted">${esc(t('u.how'))}</small>`}</section>`;
+return `<p class="urg-mini" id="urgCard"><span class="urg-badge idle">⏳ ${esc(t('u.title'))}</span><span>${esc(next ? t('u.next', { a: hhmm(sl[0]), b: hhmm(sl[1]) }) : t('u.none', { a: hhmm(URG.slots[0][0]) }))}</span></p>`;
 }
 function maybeUrgentPopup() {
 if (!urgOn() || S.tab !== 'today' || !sheet.hidden) return;
@@ -2711,7 +2931,7 @@ const ASC_GAPS = [1.25, .8, 1.35, .7, 1.2, .75, 1.3, .85, 1.15, .65];
 const ascX = (i, x0, x1) => { const tot = ASC_GAPS.reduce((a, b) => a + b, 0); let s = 0; for (let k = 0; k <= i; k++) s += ASC_GAPS[k]; return x0 + s / tot * (x1 - x0); };
 const SUMMITS = RANKS.slice(1).map(r => ({ a: altOfLevel(r.lvl), fr: r.fr, en: r.en, r }));
 function altOf(xp) {
-const lv = levelOf(xp); if (lv >= MAX_LVL) return ALT_TOP;
+xp = lvXp(xp); const lv = levelOf(xp); if (lv >= MAX_LVL) return ALT_TOP;
 const from = xpForLevel(lv), to = xpForLevel(lv + 1);
 return Math.round((lv - 1 + (xp - from) / (to - from)) / (MAX_LVL - 1) * ALT_TOP);
 }
@@ -2830,7 +3050,7 @@ return `<svg class="radar" viewBox="0 0 ${size} ${size}" role="img" aria-label="
       ${STATS.map((_, i) => { const [x, y] = pt(i, R); return `<line x1="${c}" y1="${c}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rd-ax"/>`; }).join('')}
       <polygon points="${poly}" class="rd-val"/>
       ${vals.map((v, i) => { const [x, y] = pt(i, R * Math.max(.06, v / M)); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" class="rd-pt"/>`; }).join('')}
-      ${STATS.map((x, i) => { const [lx, ly] = pt(i, R + 18); return `<text x="${lx.toFixed(1)}" y="${(ly + 5).toFixed(1)}" text-anchor="middle">${x.i}</text>`; }).join('')}
+      ${STATS.map((x, i) => { const [lx, ly] = pt(i, R + 18), p = EMO[emoKey(x.i)]; return p ? `<svg class="ico-in rad-ico" x="${(lx - 9).toFixed(1)}" y="${(ly - 9).toFixed(1)}" width="18" height="18" viewBox="0 0 24 24">${p}</svg>` : `<text x="${lx.toFixed(1)}" y="${(ly + 5).toFixed(1)}" text-anchor="middle">${x.i}</text>`; }).join('')}
     </svg>`;
 }
 function titleCtx() { return memoGet('tc', titleCompute); }
@@ -2879,6 +3099,15 @@ const TITLES = [
 { id: 'untouchable', fr: 'Intouchable', en: 'Untouchable', dfr: '30 journées parfaites', den: '30 perfect days', ok: c => c.perfect >= 30 },
 { id: 'legendslayer', fr: 'Tueur de légendes', en: 'Legend slayer', dfr: 'Vaincre un donjon de rang Légende', den: 'Clear a Legend dungeon', ok: c => c.legendDg },
 { id: 'sysmaster', fr: 'Maître du Système', en: 'System master', dfr: '500 quêtes terminées', den: '500 quests completed', ok: c => c.quests >= 500 },
+{ id: 'chesthunter', fr: 'Chasseur de coffres', en: 'Chest hunter', dfr: 'Rare · trouvé dans un coffre', den: 'Rare · found in a chest', ok: () => lootHas('t_hunter') },
+{ id: 'summitshadow', fr: 'Ombre du sommet', en: 'Summit shadow', dfr: 'Rare · trouvé dans un coffre', den: 'Rare · found in a chest', ok: () => lootHas('t_shadow') },
+{ id: 'chosen', fr: 'Élu du Système', en: 'Chosen by the System', dfr: 'Légendaire · trouvé dans un coffre', den: 'Legendary · found in a chest', ok: () => lootHas('t_elu') },
+{ id: 'awakened', fr: 'Éveillé', en: 'Awakened', dfr: 'Rare · trouvé dans un coffre', den: 'Rare · found in a chest', ok: () => lootHas('t_wake') },
+{ id: 'gatebreaker', fr: 'Briseur de portails', en: 'Gate Breaker', dfr: 'Rare · trouvé dans un coffre', den: 'Rare · found in a chest', ok: () => lootHas('t_gate') },
+{ id: 'srank', fr: 'Chasseur de rang S', en: 'S-Rank Hunter', dfr: 'Épique · trouvé dans un coffre', den: 'Epic · found in a chest', ok: () => lootHas('t_srank') },
+{ id: 'limitless', fr: 'Sans limite', en: 'Limitless', dfr: 'Épique · trouvé dans un coffre', den: 'Epic · found in a chest', ok: () => lootHas('t_limit') },
+{ id: 'sovereign', fr: 'Souverain des sommets', en: 'Sovereign of Summits', dfr: 'Légendaire · trouvé dans un coffre', den: 'Legendary · found in a chest', ok: () => lootHas('t_sovereign') },
+{ id: 'beyond', fr: 'Au-delà du rang S', en: 'Beyond S-Rank', dfr: 'Légendaire · trouvé dans un coffre', den: 'Legendary · found in a chest', ok: () => lootHas('t_beyond') },
 { id: 'creator', fr: 'Créateur de PeakMind', en: 'PeakMind creator', dfr: 'Réservé au créateur de l\'appli', den: 'Reserved for the app\'s creator', ok: () => creatorOn() }
 ];
 const titlesEarned = (c = titleCtx()) => creatorAll() ? TITLES.slice() : TITLES.filter(x => x.ok(c));
@@ -2897,9 +3126,8 @@ const s = hunterStats(), wk = hunterStats(weekStart()), M = Math.max(30, ...STAT
 return `<section class="card hunter">
       <div class="row between"><span class="section-title" style="margin:0">${esc(t('hs.title'))}</span><button type="button" class="btn subtle q-act" id="hsTitle">🏷️ ${esc(L(titleNow(), ''))}</button></div>
       <div class="hunter-body">${radarSvg(s)}
-        <div class="stat-list">${STATS.map(x => `<div class="stat-row"><span aria-hidden="true">${x.i}</span><b>${esc(L(x, ''))}</b><span class="num stat-v">${statVal(s[x.id])}${wk[x.id] ? `<small> +${wk[x.id]}</small>` : ''}</span>
+        <div class="stat-list">${STATS.map(x => `<div class="stat-row"><span class="stat-ico" aria-hidden="true">${emoSvg(x.i, 'ico-in') || x.i}</span><b>${esc(L(x, ''))}</b><span class="num stat-v">${statVal(s[x.id])}${wk[x.id] ? `<small> +${wk[x.id]}</small>` : ''}</span>
           <div class="bar thin"><i style="width:${(statVal(s[x.id]) / M * 100).toFixed(1)}%"></i></div></div>`).join('')}</div></div>
-      <p class="muted" style="margin:0;font-size:.82rem">${esc(t('hs.d'))}</p>
       <button type="button" class="btn ghost" id="rpOpen">📜 ${esc(t('rp.open2'))}</button>
     </section>`;
 }
@@ -2910,7 +3138,7 @@ let xp = 0, before = 0, best = null;
 for (const k in days) { if (k < ws) before += days[k]; else if (k <= we) { xp += days[k]; if (!best || days[k] > days[best]) best = k; } }
 let quests = 0, perfect = 0;
 for (const k in log) if (k >= ws && k <= we) { quests += (log[k].d || []).length; if (log[k].b) perfect++; }
-const endXp = before + xp, lvl = levelOf(endXp);
+const endXp = before + xp, lvl = levelOf(lvXp(endXp));
 return { ws, we, xp, quests, perfect, best, bestXp: best ? days[best] : 0, altEnd: altOf(endXp), altGain: altOf(endXp) - altOf(before),
 level: lvl, rank: rankOf(lvl), gain: hunterStats(ws, we), stats: hunterStats('0000', we), streak: globalStreak(), title: titleNow() };
 }
@@ -3417,6 +3645,31 @@ Object.assign(T.en, {
 'b.graduate': 'Graduate', 'b.graduate.d': 'Every Money Academy lesson'
 });
 function streakEndingAt(k) { let n = 0, d = parseKey(k); while (S.activity[dkey(d)]) { n++; d = addDays(d, -1); } return n; }
+const FZ_MAX = 2, FZ_CAP = 3;
+function fz() { if (!S.freeze || typeof S.freeze !== 'object') S.freeze = { n: 0 }; S.freeze.n = Math.max(0, Math.min(FZ_CAP, S.freeze.n | 0)); return S.freeze; }
+function earnFreeze() { const f = fz(); if (f.n >= FZ_MAX) return false; f.n++; f.got = today(); return true; }
+function applyFreezes() {
+if (!S.onboarded || !S.activity) return 0;
+const f = fz(); if (!f.n) return 0;
+const miss = []; let d = addDays(new Date(), -1);
+while (!S.activity[dkey(d)] && miss.length <= f.n) { miss.push(dkey(d)); d = addDays(d, -1); }
+if (!miss.length || miss.length > f.n) return 0;
+const before = streakEndingAt(dkey(d)); if (before < 2) return 0;
+miss.forEach(k => { S.activity[k] = 'g'; });
+f.n -= miss.length; f.saved = { d: today(), days: miss.length, n: before + miss.length };
+save(); return miss.length;
+}
+function freezeNotice(tries = 0) {
+const f = fz(); if (!f.saved || f.saved.d !== today() || f.saved.seen) return;
+if (!sheet.hidden || !welcomeEl.hidden || tries === 0) { if (tries < 40) setTimeout(() => freezeNotice(tries + 1), tries === 0 ? 1500 : 2500); return; }
+f.saved.seen = true; save();
+SFX.play('badge'); buzz([30, 60, 30]);
+openSheet(`<div class="sheet-head"><h2>❄️ ${esc(t('fz.t'))}</h2></div>
+      <p style="margin:0">${esc(t(f.saved.days > 1 ? 'fz.saved2' : 'fz.saved', { n: f.saved.n, d: f.saved.days }))}</p>
+      <p class="muted" style="margin:0;font-size:.9rem">${esc(t('fz.again'))}</p>
+      <button type="button" class="btn block" id="fzOk">${esc(t('fz.ok'))}</button>`, true);
+$('#fzOk').onclick = () => { SFX.play('select'); closeSheet(); };
+}
 function redeemQuest() {
 const now = new Date(), y = dkey(addDays(now, -1)), y2 = dkey(addDays(now, -2)), r = S.redeem || {};
 if (S.activity[y] || !S.activity[y2]) return null;
@@ -3732,9 +3985,21 @@ if (!c.inst && standalone()) hit('installes', () => { c.inst = 1; });
 const d = today(); if (c.day !== d) hit('jour-' + d, () => { c.day = d; });
 }
 Object.assign(T.fr, { 'us.title': 'Joueurs de PeakMind', 'us.loading': 'Chargement…', 'us.off': 'Le compteur s\'allume avec le classement en ligne (Supabase, voir le README).', 'us.err': 'Pas de réseau, ou le serveur ne répond pas.', 'us.total': 'au total', 'us.today': 'aujourd\'hui', 'us.week': 'sur 7 jours', 'us.month': 'sur 30 jours',
-'s.privacy.count': 'Tes objectifs et tes progrès restent sur ton téléphone. Seul un compteur anonyme (sans pseudo ni donnée perso) dit combien de personnes utilisent PeakMind. Pense à sauvegarder de temps en temps.' });
+'s.privacy.count': 'Tes objectifs et tes progrès restent sur ton téléphone. Au classement mondial, on ne voit que ton pseudo public (tiré au hasard, jamais ton prénom), ton avatar icône, ton rang et ton XP : tu peux t\'en retirer dans l\'onglet Classement. Un compteur anonyme dit combien de personnes utilisent PeakMind. Pense à sauvegarder de temps en temps.',
+'lg.auto.t': 'Tu es dans le classement mondial !', 'lg.auto.d': 'Tu y apparais sous le pseudo « {p} », jamais sous ton prénom. Tu peux le changer quand tu veux.',
+'lg.auto.minor': 'Tu as moins de 15 ans ? Parles-en à un parent. Tu peux te retirer du classement à tout moment.',
+'lg.auto.ok': 'Super !', 'lg.auto.rename': 'Changer de pseudo', 'lg.auto.out': 'Me retirer',
+'lg.ps.t': 'Ton pseudo public', 'lg.ps.d': 'C\'est le nom que les autres voient au classement. Évite ton vrai nom. Lettres, chiffres, « . », « _ » ou « - », sans espace.',
+'lg.ps.dice': 'Au hasard', 'lg.ps.save': 'Enregistrer', 'lg.ps.err': 'De 2 à 20 caractères : lettres, chiffres, « . », « _ » ou « - », sans espace.',
+'lg.ps.bad': 'Ce pseudo n\'est pas accepté. Choisis-en un autre.', 'lg.ps.btn': 'Changer mon pseudo public ({p})', 'lg.s.on': 'Tu participes au classement sous ton pseudo public.' });
 Object.assign(T.en, { 'us.title': 'PeakMind players', 'us.loading': 'Loading…', 'us.off': 'The counter turns on with the online ranking (Supabase, see the README).', 'us.err': 'No network, or the server isn\'t answering.', 'us.total': 'in total', 'us.today': 'today', 'us.week': 'last 7 days', 'us.month': 'last 30 days',
-'s.privacy.count': 'Your goals and progress stay on your phone. Only an anonymous counter (no name, no personal data) tells how many people use PeakMind. Back up from time to time.' });
+'s.privacy.count': 'Your goals and progress stay on your phone. In the world ranking, people only see your public username (picked at random, never your first name), icon avatar, rank and XP: you can leave it in the Ranking tab. An anonymous counter tells how many people use PeakMind. Back up from time to time.',
+'lg.auto.t': 'You\'re in the world ranking!', 'lg.auto.d': 'You appear as « {p} », never under your first name. You can change it anytime.',
+'lg.auto.minor': 'Under 15? Talk to a parent about it. You can leave the ranking at any time.',
+'lg.auto.ok': 'Great!', 'lg.auto.rename': 'Change username', 'lg.auto.out': 'Leave',
+'lg.ps.t': 'Your public username', 'lg.ps.d': 'This is the name others see in the ranking. Avoid your real name. Letters, digits, ".", "_" or "-", no spaces.',
+'lg.ps.dice': 'Random', 'lg.ps.save': 'Save', 'lg.ps.err': '2 to 20 characters: letters, digits, ".", "_" or "-", no spaces.',
+'lg.ps.bad': 'This username isn\'t allowed. Pick another one.', 'lg.ps.btn': 'Change my public username ({p})', 'lg.s.on': 'You\'re in the ranking under your public username.' });
 function creatorCode() {
 if (creatorOn()) { toast(t('cr.already')); return; }
 openSheet(`<div class="sheet-head"><h2>👑 ${esc(t('cr.title'))}</h2><button type="button" class="icon-btn" id="closeCr" aria-label="${esc(t('close'))}">✕</button></div>
@@ -3830,7 +4095,7 @@ if (!S.onboarded) return '';
 const tk = today(), y = dkey(addDays(new Date(), -1));
 if (new Date().getHours() < 18 || S.activity[tk] || !S.activity[y]) return '';
 const n = streakEndingAt(y); if (n < 2) return '';
-return `<section class="card danger-card" role="alert"><span class="dz-ico" aria-hidden="true">🔥</span><div class="dz-txt"><b>${esc(t('dz.t', { n }))}</b><small>${esc(t('dz.d'))}</small></div><button type="button" class="btn" id="dzGo">${esc(t('dz.go'))}</button></section>`;
+return `<section class="card danger-card" role="alert"><span class="dz-ico" aria-hidden="true">🔥</span><div class="dz-txt"><b>${esc(t('dz.t', { n }))}</b><small>${esc(t(fz().n ? 'dz.d.fz' : 'dz.d', { f: fz().n }))}</small></div><button type="button" class="btn" id="dzGo">${esc(t('dz.go'))}</button></section>`;
 }
 function guideTip() {
 if (!S.onboarded || S.guideSeen || Object.keys(S.activity).length > 3) return '';
@@ -3841,6 +4106,8 @@ function bindTodayExtras(root) {
 const dz = root.querySelector('#dzGo'); if (dz) dz.onclick = () => { const q = view.querySelector('.quests'); if (q) q.scrollIntoView({ behavior: 'smooth', block: 'start' }); SFX.play('select'); };
 const go = root.querySelector('#gtOpen'); if (go) go.onclick = () => openGuide();
 const gc = root.querySelector('#gtClose'); if (gc) gc.onclick = () => { S.guideSeen = true; save(); SFX.play('close'); render(); };
+root.querySelectorAll('[data-lootopen]').forEach(b => b.onclick = () => { SFX.play('select'); openLoot(); });
+root.querySelectorAll('[data-dqdone]').forEach(b => b.onclick = () => confirmBox(t('lt.dark.q'), t('lt.dark.yes'), darkDone));
 }
 function bestStreakEver() { let best = 0, run = 0, prev = null; for (const k of Object.keys(S.activity).filter(k => S.activity[k]).sort()) { run = prev && daysBetween(prev, k) === 1 ? run + 1 : 1; best = Math.max(best, run); prev = k; } return best; }
 function activityCard() {
@@ -3892,7 +4159,7 @@ txt('« ' + L(titleNow(), '') + ' »', W / 2, 825, D(600, 42), A, 'center');
 txt(`${t('lvl.n', { n: st.level })} · ${L(st.rank, '')}`.toUpperCase(), W / 2, 885, D(600, 36), MUT, 'center', 4);
 rr(160, 930, 760, 22, 11); g.fillStyle = 'rgba(255,255,255,.1)'; g.fill();
 const bw = Math.max(22, 760 * (st.max ? 1 : st.p)), lg = g.createLinearGradient(160, 0, 160 + bw, 0); lg.addColorStop(0, A2); lg.addColorStop(1, A); rr(160, 930, bw, 22, 11); g.fillStyle = lg; g.fill();
-txt(st.max ? t('lvl.total', { n: nf(st.total) }) : `${nf(st.total)} / ${nf(st.to)} XP`, W / 2, 1000, D(500, 32, 'Space Grotesk'), MUT, 'center');
+txt(st.max ? t('lvl.total', { n: nf(st.total) }) : `${nf(st.in)} / ${nf(st.need)} XP`, W / 2, 1000, D(500, 32, 'Space Grotesk'), MUT, 'center');
 const badges = BADGES.filter(b => S.badges[b.id]).length;
 const tiles = [[`${nf(alt)} m`, t('rp.alt')], [`${globalStreak()} ${S.lang === 'fr' ? 'j' : 'd'}`, t('stat.streak')], [nf(questsDone()), t('rp.quests')], [`${badges}/${BADGES.length}`, t('pt.badges')]];
 tiles.forEach(([v, l], i) => { const x = 90 + (i % 2) * 460, y = 1060 + Math.floor(i / 2) * 210;
@@ -3928,7 +4195,7 @@ share.onclick = async () => { if (navigator.canShare && navigator.canShare({ fil
 dl.onclick = download;
 onSheetClose = () => setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-const GUIDE = ['start', 'quests', 'xp', 'dungeon', 'stats', 'vault', 'exam', 'tips', 'league', 'data'];
+const GUIDE = ['start', 'quests', 'xp', 'loot', 'dungeon', 'stats', 'vault', 'exam', 'tips', 'league', 'data'];
 function openGuide() {
 S.guideSeen = true; save();
 openSheet(`<div class="sheet-head"><h2>📖 ${esc(t('gd.title'))}</h2><button type="button" class="icon-btn" id="closeGd" aria-label="${esc(t('close'))}">✕</button></div>
@@ -3939,13 +4206,18 @@ sheet.querySelectorAll('.guide summary').forEach(s => s.addEventListener('click'
 }
 Object.assign(T.fr, {
 'dz.t': 'Ta série de {n} jours est en danger !', 'dz.d': 'Fais une quête ou une action avant minuit pour la garder.', 'dz.go': 'J\'y vais',
+'dz.d.fz': 'Ton gel de série la protégera si tu rates aujourd\'hui… mais garde-le pour un vrai coup dur : fais une quête !',
+'fz.count': 'Gels de série : {n}/{m} · une journée parfaite te donne un gel', 'fz.full': 'Gels de série : {n}/{m} · ta série est protégée {n} jours',
+'fz.got': 'Journée parfaite : +1 gel de série ({n}/{m}). Il protégera ta série si tu rates un jour.',
+'fz.t': 'Série sauvée !', 'fz.again': 'Une journée parfaite (les 3 quêtes) te redonne un gel.', 'fz.ok': 'On repart',
+'fz.saved': 'Tu as raté hier, mais ton gel de série a protégé ta série : {n} jours !', 'fz.saved2': 'Tu as raté {d} jours, mais tes gels ont protégé ta série : {n} jours !',
 'gd.tipT': 'Nouveau ici ?', 'gd.tipD': 'Le guide du Système t\'explique tout en 2 minutes.', 'gd.read': 'Lire',
 'ac.title': 'Ton activité', 'ac.range': '6 derniers mois', 'ac.less': 'Moins', 'ac.more': 'Plus', 'ac.active': 'jours actifs', 'ac.best': 'meilleure série', 'ac.quests': 'quêtes',
 'pc.title': 'Carte de joueur', 'pc.share': 'Partager ma carte', 'pc.shareRank': 'Partager mon nouveau rang', 'pc.hint': 'Poste-la en story ou sur TikTok avec #peakmind. Ta photo n\'apparaît jamais.',
 'gd.title': 'Guide du Système', 'gd.row': 'Comment marche PeakMind, en 2 minutes', 'gd.intro': 'Touche une partie pour la lire.',
 'gd.start.t': '🎯 Le principe', 'gd.start.d': 'Tu choisis tes objectifs (sport, cours, sommeil, argent, mauvaises habitudes). Chaque action te rapporte de l\'XP. L\'XP te fait monter de niveau, de Fer jusqu\'à Légende, et grimper la montagne jusqu\'à 8 849 m.',
-'gd.quests.t': '⚔️ Les quêtes du jour', 'gd.quests.d': 'Chaque matin, le Système te donne 3 quêtes choisies pour toi. Plus tu réussis, plus elles deviennent dures. Tu peux en changer une par jour (↻). Finis les 3 pour une journée parfaite (+10 XP). Chaque semaine, un défi rapporte +50 XP.',
-'gd.xp.t': '⛰️ XP, niveaux et rangs', 'gd.xp.d': 'Tu peux gagner jusqu\'à 150 XP par jour (actions + quêtes, urgentes comprises). Les badges, le défi de la semaine et le boss du donjon rapportent de l\'XP en plus. Un nouveau rang tous les 10 niveaux : Bronze, Argent, Or… et Légende au niveau 100. Chaque niveau débloque des thèmes, des avatars ou des cadres.',
+'gd.quests.t': '⚔️ Les quêtes du jour', 'gd.quests.d': 'Chaque matin, le Système te donne 3 quêtes choisies pour toi. Plus tu réussis, plus elles deviennent dures. Tu peux en changer une par jour (↻). Finis les 3 pour une journée parfaite (+10 XP et un gel de série, 2 au maximum : il protège ta série si tu rates un jour). Chaque semaine, un défi rapporte +50 XP.',
+'gd.xp.t': '⛰️ XP, niveaux et rangs', 'gd.xp.d': 'Tu peux gagner jusqu\'à 120 XP par jour (actions + quêtes, urgentes comprises). Les badges, le défi de la semaine et le boss du donjon rapportent de l\'XP en plus. Un nouveau rang tous les 10 niveaux : Bronze, Argent, Or… et Légende au niveau 100. Chaque niveau débloque des thèmes, des avatars ou des cadres.',
 'gd.dungeon.t': '🌀 Les donjons', 'gd.dungeon.d': 'Chaque lundi, un donjon de ton rang s\'ouvre. Grimpe un étage par jour, puis bats le boss avant dimanche soir : +75 XP. Réussis 2 donjons d\'affilée et le Système t\'envoie dans un donjon du rang au-dessus.',
 'gd.stats.t': '📊 Fiche, titres et badges', 'gd.stats.d': 'Tes quêtes font monter 5 stats : Force, Endurance, Intelligence, Discipline, Mental. Tu débloques des titres à afficher sous ton pseudo, et des badges qui rapportent chacun +50 XP.',
 'gd.vault.t': '💰 Le Coffre', 'gd.vault.d': 'Tirelires projet (avec ta date d\'arrivée), budget de la semaine, envies sous clé 48 h et Académie de l\'argent. Ouvre-le depuis l\'onglet Objectifs. Aucun montant ne quitte ton téléphone.',
@@ -3956,13 +4228,18 @@ Object.assign(T.fr, {
 });
 Object.assign(T.en, {
 'dz.t': 'Your {n}-day streak is in danger!', 'dz.d': 'Do a quest or an action before midnight to keep it.', 'dz.go': 'On it',
+'dz.d.fz': 'Your streak freeze will protect it if you miss today… but save it for a real bad day: do a quest!',
+'fz.count': 'Streak freezes: {n}/{m} · a perfect day gives you one', 'fz.full': 'Streak freezes: {n}/{m} · your streak is protected for {n} days',
+'fz.got': 'Perfect day: +1 streak freeze ({n}/{m}). It will protect your streak if you miss a day.',
+'fz.t': 'Streak saved!', 'fz.again': 'A perfect day (all 3 quests) gives you a new freeze.', 'fz.ok': 'Let\'s go',
+'fz.saved': 'You missed yesterday, but your streak freeze saved your streak: {n} days!', 'fz.saved2': 'You missed {d} days, but your freezes saved your streak: {n} days!',
 'gd.tipT': 'New here?', 'gd.tipD': 'The System guide explains everything in 2 minutes.', 'gd.read': 'Read',
 'ac.title': 'Your activity', 'ac.range': 'last 6 months', 'ac.less': 'Less', 'ac.more': 'More', 'ac.active': 'active days', 'ac.best': 'best streak', 'ac.quests': 'quests',
 'pc.title': 'Player card', 'pc.share': 'Share my card', 'pc.shareRank': 'Share my new rank', 'pc.hint': 'Post it in your story or on TikTok with #peakmind. Your photo never appears.',
 'gd.title': 'System guide', 'gd.row': 'How PeakMind works, in 2 minutes', 'gd.intro': 'Tap a part to read it.',
 'gd.start.t': '🎯 The idea', 'gd.start.d': 'You pick your goals (sport, school, sleep, money, bad habits). Every action earns XP. XP levels you up from Iron to Legend and takes you up the mountain, all the way to 8,849 m.',
-'gd.quests.t': '⚔️ Daily quests', 'gd.quests.d': 'Every morning, the System gives you 3 quests picked for you. The more you succeed, the harder they get. You can swap one per day (↻). Finish all 3 for a perfect day (+10 XP). Each week, a challenge earns +50 XP.',
-'gd.xp.t': '⛰️ XP, levels and ranks', 'gd.xp.d': 'You can earn up to 150 XP per day (actions + quests, urgent ones included). Badges, the weekly challenge and the dungeon boss give extra XP. A new rank every 10 levels: Bronze, Silver, Gold… and Legend at level 100. Each level unlocks themes, avatars or frames.',
+'gd.quests.t': '⚔️ Daily quests', 'gd.quests.d': 'Every morning, the System gives you 3 quests picked for you. The more you succeed, the harder they get. You can swap one per day (↻). Finish all 3 for a perfect day (+10 XP and a streak freeze, 2 max: it protects your streak if you miss a day). Each week, a challenge earns +50 XP.',
+'gd.xp.t': '⛰️ XP, levels and ranks', 'gd.xp.d': 'You can earn up to 120 XP per day (actions + quests, urgent ones included). Badges, the weekly challenge and the dungeon boss give extra XP. A new rank every 10 levels: Bronze, Silver, Gold… and Legend at level 100. Each level unlocks themes, avatars or frames.',
 'gd.dungeon.t': '🌀 Dungeons', 'gd.dungeon.d': 'Every Monday, a dungeon of your rank opens. Climb one floor per day, then beat the boss before Sunday night: +75 XP. Clear 2 dungeons in a row and the System sends you to a higher-rank dungeon.',
 'gd.stats.t': '📊 Profile, titles and badges', 'gd.stats.d': 'Your quests raise 5 stats: Strength, Stamina, Intelligence, Discipline, Mind. You unlock titles to show under your name, and badges worth +50 XP each.',
 'gd.vault.t': '💰 The Vault', 'gd.vault.d': 'Project jars (with your arrival date), weekly budget, 48-hour locked wants and the Money Academy. Open it from the Goals tab. No amount ever leaves your phone.',
@@ -3999,8 +4276,282 @@ const g = root.querySelector('#inGo'); if (g) g.onclick = () => { SFX.play('sele
 const l = root.querySelector('#inLater'); if (l) l.onclick = () => { S.installSnooze = today(); save(); SFX.play('close'); render(); };
 const s = root.querySelector('#setInstall'); if (s) s.onclick = () => { SFX.play('select'); doInstall(); };
 }
+function installReward(tries = 0) {
+if (!sheet.hidden || !welcomeEl.hidden) { if (tries < 40) setTimeout(() => installReward(tries + 1), 2500); return; }
+SFX.play('rankUp'); buzz([30, 60, 30, 60, 90]);
+openSheet(`<div class="sheet-head"><h2>${esc(t('in.fr.t'))}</h2></div>
+      <div class="in-reward">${rewardPreview({ kind: 'frame', id: 'install' }, '')}<b>${esc(frameName('install'))}</b></div>
+      <p style="margin:0">${esc(t('in.fr.d'))}</p>
+      <button type="button" class="btn block" id="infEquip">${esc(t('in.fr.equip'))}</button>
+      <button type="button" class="btn subtle block" id="infLater">${esc(t('in.later'))}</button>`, true);
+$('#infEquip').onclick = () => { S.frame = 'install'; save(); SFX.play('equip'); toast(t('rw.equipped')); closeSheet(); render(); scheduleSync(); };
+$('#infLater').onclick = () => { SFX.play('select'); closeSheet(); };
+}
+const RAR = ['#9fb3c8', '#4da3ff', '#b46bff', '#ffd36b'];
+const LOOT = [
+{ id: 'fz1', r: 0, w: 22, k: 'freeze', n: 1 }, { id: 'rr', r: 0, w: 18, k: 'reroll', n: 1 }, { id: 'sh', r: 0, w: 12, k: 'shards', n: 3 }, { id: 'quote', r: 0, w: 8, k: 'quote' },
+{ id: 'x2d', r: 1, w: 9, k: 'x2', h: 24 }, { id: 'dark', r: 1, w: 8, k: 'dark' },
+{ id: 't_hunter', r: 1, w: 1.5, k: 'title' }, { id: 't_shadow', r: 1, w: 1.5, k: 'title' }, { id: 't_wake', r: 1, w: 1.5, k: 'title' }, { id: 't_gate', r: 1, w: 1.5, k: 'title' },
+{ id: 'th_gate', r: 1, w: .5, k: 'theme' }, { id: 'th_wake', r: 1, w: .5, k: 'theme' }, { id: 'th_sakura', r: 1, w: .5, k: 'theme' }, { id: 'th_blade', r: 1, w: .5, k: 'theme' },
+{ id: 'f_dark', r: 2, w: 2, k: 'frame' }, { id: 'x2w', r: 2, w: 2.5, k: 'x2', h: 72 }, { id: 'fz3', r: 2, w: 2, k: 'freeze', n: 3 },
+{ id: 'th_dark', r: 2, w: .9, k: 'theme' }, { id: 'th_redgate', r: 2, w: .9, k: 'theme' }, { id: 'th_srank', r: 2, w: .9, k: 'theme' }, { id: 'th_wraith', r: 2, w: .9, k: 'theme' }, { id: 'th_dragon', r: 2, w: .9, k: 'theme' },
+{ id: 't_srank', r: 2, w: .5, k: 'title' }, { id: 't_limit', r: 2, w: .5, k: 'title' },
+{ id: 'f_gold', r: 3, w: .45, k: 'frame' }, { id: 'th_crown', r: 3, w: .35, k: 'theme' }, { id: 'th_sovereign', r: 3, w: .35, k: 'theme' }, { id: 'th_system', r: 3, w: .35, k: 'theme' },
+{ id: 'th_blackaurora', r: 3, w: .35, k: 'theme' }, { id: 't_elu', r: 3, w: .4, k: 'title' }, { id: 't_sovereign', r: 3, w: .35, k: 'title' }, { id: 't_beyond', r: 3, w: .4, k: 'title' }];
+const LQ = 6, DARK_N = 10, SHARD_COST = [10, 20, 40, 80], DARK_XP = 40;
+const LOOT_REAL = { t_wake: ['title', 'awakened'], t_gate: ['title', 'gatebreaker'], t_srank: ['title', 'srank'], t_limit: ['title', 'limitless'],
+t_sovereign: ['title', 'sovereign'], t_beyond: ['title', 'beyond'], th_gate: ['theme', 'portail'], th_wake: ['theme', 'eveil'], th_sakura: ['theme', 'nuitsakura'],
+th_blade: ['theme', 'acier'], th_redgate: ['theme', 'porterouge'], th_srank: ['theme', 'rangs'], th_wraith: ['theme', 'spectre'], th_dragon: ['theme', 'dragon'],
+th_sovereign: ['theme', 'souverain'], th_system: ['theme', 'systeme'], th_blackaurora: ['theme', 'aurorenoire'],
+t_hunter: ['title', 'chesthunter'], t_shadow: ['title', 'summitshadow'], t_elu: ['title', 'chosen'], f_dark: ['frame', 'dark'], f_gold: ['frame', 'goldchest'], th_dark: ['theme', 'tenebres'], th_crown: ['theme', 'couronne'] };
+const LOOT_EXCL = [...Object.keys(LOOT_REAL), ...Array.from({ length: LQ }, (_, i) => 'q' + (i + 1))];
+function loot() {
+if (!S.loot || typeof S.loot !== 'object') S.loot = { base: S.onboarded ? ppStats().level : 1, n: S.onboarded ? 1 : 0, open: 0, pity: 0, sh: 0, it: {}, rr: 0, dlog: {} };
+const lo = S.loot; if (!lo.it || typeof lo.it !== 'object') lo.it = {}; if (!lo.dlog || typeof lo.dlog !== 'object') lo.dlog = {};
+['n', 'open', 'pity', 'sh', 'rr', 'dqn'].forEach(k => { lo[k] = Math.max(0, lo[k] | 0); });
+return lo;
+}
+function lootHas(id) { return !!(S.loot && S.loot.it && S.loot.it[id]); }
+function lootX2() { return !!(S.loot && S.loot.x2 > Date.now()); }
+function lootTick() { if (!S.onboarded) return; const lo = loot(), lv = ppStats().level; if (lv > lo.base) { lo.n += lv - lo.base; lo.base = lv; save(); } }
+const lootRar = id => id[0] === 'q' && /^q\d+$/.test(id) ? 0 : (LOOT.find(x => x.id === id) || { r: 0 }).r;
+function lootName(id) {
+if (/^q\d+$/.test(id)) return t('lt.qn', { n: id.slice(1) });
+const [kind, real] = LOOT_REAL[id] || [];
+return kind === 'title' ? L(TITLES.find(x => x.id === real) || TITLES[0], '') : kind === 'frame' ? frameName(real) : themeName(real);
+}
+const lootSorted = ids => [...ids].sort((a, b) => lootRar(b) - lootRar(a));
+const lootTag = id => t('lt.r' + lootRar(id)) + ' · ' + t('lt.k.' + (/^q\d+$/.test(id) ? 'quote' : LOOT_REAL[id][0]));
+const shardCost = id => SHARD_COST[lootRar(id)];
+function lootDraw() {
+const lo = loot(), pool = lo.pity >= 9 ? LOOT.filter(x => x.r >= 2) : LOOT;
+let r = Math.random() * pool.reduce((s, x) => s + x.w, 0);
+for (const x of pool) { r -= x.w; if (r <= 0) return x; }
+return pool[0];
+}
+function lootApply(x) {
+const lo = loot(), res = { r: x.r, id: x.id, k: x.k };
+lo.open++; lo.pity = x.r >= 2 ? 0 : lo.pity + 1;
+if (x.k === 'freeze') { const f = fz(), b = f.n; f.n = Math.min(FZ_CAP, f.n + x.n); res.n = f.n - b; if (!res.n) { lo.sh += 2; res.dup = 2; } }
+else if (x.k === 'reroll') lo.rr += x.n;
+else if (x.k === 'shards') { lo.sh += x.n; res.n = x.n; }
+else if (x.k === 'x2') { lo.x2 = Math.max(lo.x2 || 0, Date.now()) + x.h * 3600e3; res.h = x.h; }
+else if (x.k === 'dark') lo.dqn++;
+else if (x.k === 'quote') { const miss = Array.from({ length: LQ }, (_, i) => 'q' + (i + 1)).filter(q => !lo.it[q]);
+if (miss.length) { res.q = miss[Math.floor(Math.random() * miss.length)]; lo.it[res.q] = today(); } else { lo.sh += 3; res.dup = 3; } }
+else if (lo.it[x.id]) { res.dup = [0, 5, 8, 12][x.r]; lo.sh += res.dup; }
+else lo.it[x.id] = today();
+lo.last = { id: x.id, d: today() }; save(); return res;
+}
+function lootTitle(res) {
+if (res.dup) return t('lt.n.sh', { n: res.dup });
+if (res.k === 'freeze') return t(res.n > 1 ? 'lt.n.fz3' : 'lt.n.fz', { n: res.n });
+if (res.k === 'reroll') return t('lt.n.rr');
+if (res.k === 'shards') return t('lt.n.sh', { n: res.n });
+if (res.k === 'x2') return t(res.h > 24 ? 'lt.n.x2w' : 'lt.n.x2d');
+if (res.k === 'dark') return t('lt.n.dark');
+if (res.k === 'quote') return t('lt.n.quote');
+return t('lt.n.' + res.k, { name: lootName(res.id) });
+}
+function lootDesc(res) {
+if (res.dup) return t(res.k === 'freeze' ? 'lt.d.fzfull' : 'lt.dup', { n: res.dup, s: loot().sh });
+if (res.k === 'quote') return t('lt.' + res.q);
+return t('lt.d.' + res.k, { s: loot().sh, n: fz().n });
+}
+const chestSvg = s => `<svg class="chest-svg" viewBox="6 8 90 90" width="${s}" height="${s}" aria-hidden="true">
+    <defs>
+      <linearGradient id="pmcF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7448ec"/><stop offset=".55" stop-color="#4a22b8"/><stop offset="1" stop-color="#240d66"/></linearGradient>
+      <linearGradient id="pmcS" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b1a92"/><stop offset="1" stop-color="#170845"/></linearGradient>
+      <linearGradient id="pmcL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a30cf"/><stop offset=".22" stop-color="#9a78ff"/><stop offset=".5" stop-color="#6a3ff0"/><stop offset="1" stop-color="#2e137e"/></linearGradient>
+      <linearGradient id="pmcC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4c25b0"/><stop offset="1" stop-color="#1d0b55"/></linearGradient>
+      <linearGradient id="pmcG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6d6"/><stop offset=".45" stop-color="#ffd36b"/><stop offset="1" stop-color="#b9780e"/></linearGradient>
+      <linearGradient id="pmcGs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e0a630"/><stop offset="1" stop-color="#7a4a06"/></linearGradient>
+      <linearGradient id="pmcIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rc,#ffd36b)"/><stop offset="1" stop-color="#fff8e1"/></linearGradient>
+      <radialGradient id="pmcGl" cx=".5" cy="1" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".35" style="stop-color:var(--rc,#ffd36b)" stop-opacity=".7"/><stop offset="1" style="stop-color:var(--rc,#ffd36b)" stop-opacity="0"/></radialGradient>
+    </defs>
+    <ellipse cx="52" cy="90" rx="41" ry="5.5" fill="#000" opacity=".35"/>
+    <path d="M16 54H74L86 47H28Z" fill="url(#pmcIn)"/>
+    <ellipse class="glow" cx="50" cy="40" rx="40" ry="26" fill="url(#pmcGl)"/>
+    <g stroke="#14063a" stroke-width="1.4" stroke-linejoin="round">
+      <path d="M74 54L88 46V80L74 88Z" fill="url(#pmcS)"/>
+      <rect x="14" y="54" width="60" height="34" fill="url(#pmcF)"/>
+      <path d="M74 54L88 46V50L74 58ZM74 84L88 76V80L74 88Z" fill="url(#pmcGs)"/>
+      <path d="M14 54H74V58H14ZM14 84H74V88H14Z" fill="url(#pmcG)"/>
+      <path d="M20 58h6v26h-6zM62 58h6v26h-6z" fill="url(#pmcG)"/>
+      <path d="M38 57h12v12a3 3 0 0 1-3 3h-6a3 3 0 0 1-3-3z" fill="url(#pmcG)"/>
+    </g>
+    <path d="M26 67H38M50 67H62M26 77H62M14 71H20M68 71H74M74 67L88 59M74 77L88 69" stroke="#1a0848" stroke-width="1" opacity=".7"/>
+    <path d="M15 59.2H73M21 59v24" stroke="#fff" stroke-width=".8" opacity=".35"/>
+    <circle cx="44" cy="63" r="1.9" fill="#14063a"/><path d="M43.2 63.5h1.6l.5 5h-2.6z" fill="#14063a"/>
+    <g fill="#fff3c4"><circle cx="23" cy="62" r="1.1"/><circle cx="23" cy="80" r="1.1"/><circle cx="65" cy="62" r="1.1"/><circle cx="65" cy="80" r="1.1"/></g>
+    <g class="lid">
+      <g stroke="#14063a" stroke-width="1.4" stroke-linejoin="round">
+        <path d="M74 54C74 40 78 30 83 28C87 30 89 38 88 46Z" fill="url(#pmcC)"/>
+        <path d="M14 54C13 40 17 30 23 28H83C78 30 74 40 74 54Z" fill="url(#pmcL)"/>
+        <path d="M74 54C74 40 78 30 83 28C87 30 89 38 88 46" fill="none" stroke="url(#pmcGs)" stroke-width="2.6"/>
+        <path d="M14 50H74V54H14Z" fill="url(#pmcG)"/>
+        <path d="M20 54C19 40 23 30 29 28L35 28C29 30 25 40 26 54Z" fill="url(#pmcG)"/><path d="M62 54C61 40 65 30 71 28L77 28C71 30 67 40 68 54Z" fill="url(#pmcG)"/>
+        <path d="M40.5 46h7v9a3.5 3.5 0 0 1-7 0z" fill="url(#pmcG)"/>
+      </g>
+      <path d="M14.4 44H74.4M16 36H76" stroke="#1a0848" stroke-width="1" opacity=".55"/>
+      <path d="M19 33C21 30 22 29 24 29H81C80 30 79 31.5 78.5 33Z" fill="#fff" opacity=".22"/>
+      <circle cx="44" cy="54" r="1.3" fill="#14063a"/>
+    </g></svg>`;
+function darkNow() {
+const lo = loot();
+if (!lo.dq && lo.dqn > 0 && lo.dqDone !== today()) { lo.dqn--; lo.dq = { i: 1 + Math.floor(Math.random() * DARK_N), got: today() }; save(); }
+return lo.dq || null;
+}
+function darkDone() {
+const lo = loot(); if (!lo.dq) return; const before = ppStats().total;
+lo.dlog[today()] = (lo.dlog[today()] || 0) + DARK_XP; lo.dq = null; lo.dqDone = today(); markActivity(); save();
+SFX.play('rankUp'); buzz([30, 60, 30, 60, 90]); rewardFeedback(before, t('lt.dark.ok')); render();
+}
+function lootCards() {
+if (!S.onboarded) return '';
+const lo = loot(), dq = darkNow(); let h = '';
+if (dq) h += `<section class="card dark-quest"><span class="section-title" style="margin:0">${esc(t('lt.dark.t'))}</span><b class="dq-txt">${esc(t('lt.d' + dq.i))}</b>
+      <small class="muted">${esc(t('lt.dark.d'))}</small><div class="row between"><span class="q-xp num">+${DARK_XP} XP</span><button type="button" class="btn dq-btn" data-dqdone>${esc(t('lt.dark.done'))}</button></div></section>`;
+if (lo.n > 0) h += `<button type="button" class="card loot-card" data-lootopen><span class="loot-ico">${chestSvg(58)}</span><span class="loot-txt"><b>${esc(t(lo.n > 1 ? 'lt.card.n' : 'lt.card.1', { n: lo.n }))}</b><small>${esc(t('lt.card.d'))}</small></span><span class="btn small-btn">${esc(t('lt.open'))}</span></button>`;
+return h;
+}
+function openLoot() { S.tab = 'loot'; saveUI(); closeSheet(); render(); window.scrollTo(0, 0); }
+function renderLoot() {
+const lo = loot(), st = ppStats(), dq = lo.dq ? 1 : 0;
+const fx = [];
+if (lootX2()) fx.push('⚡ ' + t('lt.fx.x2', { h: Math.max(1, Math.ceil((lo.x2 - Date.now()) / 3600e3)) }));
+if (fz().n) fx.push('❄️ ' + t('lt.fx.fz', { n: fz().n }));
+if (lo.rr) fx.push('↻ ' + t('lt.fx.rr', { n: lo.rr }));
+if (dq + lo.dqn) fx.push('🌑 ' + t('lt.fx.dark', { n: dq + lo.dqn }));
+const own = LOOT_EXCL.filter(id => lootHas(id)).length;
+const isOn = id => { const [k, real] = LOOT_REAL[id] || []; return k === 'frame' ? S.frame === real : k === 'theme' ? S.skin === real : k === 'title' ? titleNow().id === real : false; };
+const prev = id => {
+const [k, real] = LOOT_REAL[id] || [];
+if (!lootHas(id)) return `<span class="inv-lock">?</span>`;
+if (k === 'frame') return rewardPreview({ kind: 'frame', id: real }, '');
+if (k === 'theme') return themePreview(THEMES.find(th => th.id === real));
+return `<span class="inv-title">« ${esc(lootName(id))} »</span>`;
+};
+const group = (kind, ids) => `<div class="inv-group"><span class="inv-h">${esc(t('lt.k.' + kind + 's'))} <small class="num">${ids.filter(lootHas).length}/${ids.length}</small></span>
+      <div class="inv-grid${kind === 'title' ? ' one' : ''}">${lootSorted(ids).map(id => { const ok = lootHas(id), on = ok && isOn(id);
+return `<button type="button" class="inv-item${ok ? ' own' : ''}${on ? ' on' : ''}" data-inv="${id}" style="--rc:${RAR[lootRar(id)]}" aria-disabled="${!ok}">
+          ${prev(id)}<b>${esc(ok ? lootName(id) : '? ? ?')}</b><small>${esc(on ? t('lt.on') : t('lt.r' + lootRar(id)))}</small></button>`; }).join('')}</div></div>`;
+const ids = k => Object.keys(LOOT_REAL).filter(id => LOOT_REAL[id][0] === k);
+const qs6 = Array.from({ length: LQ }, (_, i) => 'q' + (i + 1));
+const quotes = qs6.map(q => lootHas(q) ? `<li class="own">${esc(t('lt.' + q))}</li>` : `<li class="muted">? ? ?</li>`).join('');
+view.innerHTML = `<div class="page-head"><h2>${esc(t('lt.title'))}</h2></div>
+      <section class="card lt-hero${lo.n ? ' has' : ''}">${chestSvg(120)}<b class="num">× ${lo.n}</b><span class="muted">${esc(t(lo.n ? (lo.n > 1 ? 'lt.wait.n' : 'lt.wait.1') : 'lt.none', { n: lo.n, l: st.level + 1 }))}</span>
+        ${lo.n ? `<button type="button" class="btn block" id="ltOpen">${esc(t('lt.open'))}</button>` : ''}</section>
+      ${fx.length ? `<div class="lt-fx">${fx.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : ''}
+      <div class="lt-odds"><span class="muted">${esc(t('lt.odds'))}</span>${[60, 25, 12, 3].map((pc, r) => `<span style="--rc:${RAR[r]}"><i></i>${esc(t('lt.r' + r))} ${pc} %</span>`).join('')}</div>
+      <div class="lt-row"><span>💎 ${esc(t('lt.shards', { n: lo.sh }))}</span>${LOOT_EXCL.some(id => !lootHas(id) && lo.sh >= shardCost(id)) ? `<button type="button" class="btn subtle" id="ltSwap">${esc(t('lt.swap'))}</button>` : ''}</div>
+      <section class="card inv-card"><div class="row between"><span class="section-title" style="margin:0">${esc(t('lt.inv'))}</span><b class="num inv-count">${own}/${LOOT_EXCL.length}</b></div>
+        <p class="muted" style="margin:0;font-size:.86rem">${esc(t('lt.inv.d'))}</p>
+        ${group('frame', ids('frame'))}${group('theme', ids('theme'))}${group('title', ids('title'))}
+        <div class="inv-group"><span class="inv-h">${esc(t('lt.k.quotes'))} <small class="num">${qs6.filter(lootHas).length}/${LQ}</small></span><ul class="lt-quotes">${quotes}</ul></div></section>
+      <p class="muted" style="margin:0;font-size:.85rem">${esc(t('lt.rules'))}</p>`;
+if ($('#ltOpen')) $('#ltOpen').onclick = lootOpen;
+if ($('#ltSwap')) $('#ltSwap').onclick = openShardSwap;
+view.querySelectorAll('[data-inv]').forEach(b => b.onclick = () => {
+const id = b.dataset.inv, [k, real] = LOOT_REAL[id] || [];
+if (!lootHas(id)) { SFX.play('error'); toast(t('lt.lock')); return; }
+if (k === 'frame') S.frame = real; else if (k === 'theme') S.skin = real; else if (k === 'title') S.title = real;
+save(); SFX.play('equip'); toast(t('rw.equipped')); render(); scheduleSync();
+});
+}
+function lootOpen() {
+const lo = loot(); if (lo.n <= 0) return;
+lo.n--; const res = lootApply(lootDraw());
+const rc = RAR[res.r];
+openSheet(`<div class="lt-stage${res.r === 3 ? ' leg' : res.r === 2 ? ' epic' : ''}" style="--rc:${rc}"><div class="lt-burst" aria-hidden="true"></div><div class="lt-chest">${chestSvg(170)}</div>
+      <div class="lt-reveal" hidden><span class="lt-rar">${esc(t('lt.r' + res.r))}</span><b class="lt-name">${esc(lootTitle(res))}</b><p class="lt-desc">${esc(lootDesc(res))}</p>
+        <div class="grid-2"><button type="button" class="btn subtle" id="ltBack">${esc(t('lt.title'))}</button>${lo.n > 0 ? `<button type="button" class="btn" id="ltNext">${esc(t('lt.next', { n: lo.n }))}</button>` : `<button type="button" class="btn" id="ltOk">${esc(t('lt.ok'))}</button>`}</div></div></div>`, true);
+onSheetClose = render;
+SFX.play('charge');
+const stage = sheet.querySelector('.lt-stage');
+setTimeout(() => { if (!stage.isConnected) return; stage.classList.add('opened'); SFX.play(res.r >= 2 ? 'rankUp' : 'levelUp'); buzz(res.r >= 2 ? [40, 60, 40, 60, 120] : [30, 40, 60]); }, 1150);
+setTimeout(() => {
+if (!stage.isConnected) return; stage.querySelector('.lt-reveal').hidden = false;
+$('#ltBack').onclick = () => { SFX.play('select'); closeSheet(); };
+if ($('#ltNext')) $('#ltNext').onclick = lootOpen;
+if ($('#ltOk')) $('#ltOk').onclick = () => { SFX.play('select'); closeSheet(); };
+}, 1500);
+}
+function openShardSwap() {
+const lo = loot(), miss = LOOT_EXCL.filter(id => !lootHas(id));
+openSheet(`<div class="sheet-head"><h2>${esc(t('lt.swap.t'))}</h2><button type="button" class="icon-btn" id="closeSw" aria-label="${esc(t('close'))}">✕</button></div>
+      <p class="muted" style="margin:0">${esc(t('lt.swap.d', { n: lo.sh }))}</p>
+      <div class="lt-grid">${lootSorted(miss).map(id => { const c = shardCost(id), ok = lo.sh >= c;
+return `<button type="button" class="lt-item pick${ok ? '' : ' off'}" data-sw="${id}" aria-disabled="${!ok}" style="--rc:${RAR[lootRar(id)]}"><b>${esc(lootName(id))}</b><small>${esc(lootTag(id))}</small><span class="lt-cost num">💎 ${c}</span></button>`; }).join('')}</div>`);
+$('#closeSw').onclick = closeSheet; onSheetClose = render;
+sheet.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => {
+const c = shardCost(b.dataset.sw); if (lo.sh < c) { SFX.play('error'); toast(t('lt.swap.no', { n: c - lo.sh })); return; }
+lo.sh -= c; lo.it[b.dataset.sw] = today(); save();
+SFX.play('rankUp'); toast(t('lt.swap.ok', { name: lootName(b.dataset.sw) })); openLoot(); render();
+});
+}
 Object.assign(T.fr, {
-'in.t': 'Installe PeakMind', 'in.d': 'Plein écran, hors ligne, données protégées.',
+'lt.title': 'Butin', 'lt.open': 'Ouvrir', 'lt.card.1': 'Un coffre t\'attend', 'lt.card.n': '{n} coffres t\'attendent', 'lt.card.d': 'Gagné en montant de niveau. Qu\'y a-t-il dedans ?',
+'lt.lock': 'Se trouve dans les coffres (un coffre à chaque niveau gagné).', 'lt.short': 'Butin', 'lt.x2.on': 'XP x2 sur les quêtes du jour · encore {h} h',
+'lt.dark.t': '🌑 Quête des ténèbres', 'lt.dark.d': 'Plus dure que les autres. Elle reste là jusqu\'à ce que tu la fasses.', 'lt.dark.done': 'Fait',
+'lt.dark.q': 'Tu as vraiment terminé la quête des ténèbres ? Le Système compte sur ton honnêteté.', 'lt.dark.yes': 'Oui, c\'est fait', 'lt.dark.ok': 'Quête des ténèbres terminée',
+'lt.inv': 'Inventaire', 'lt.odds': 'Chances par coffre', 'lt.swap.no': 'Il te manque {n} éclats.', 'lt.inv.d': 'Tout ce que tes coffres t\'ont donné. Touche un cadre, un thème ou un titre pour l\'équiper.', 'lt.on': 'Équipé',
+'lt.k.frames': 'Cadres', 'lt.k.themes': 'Thèmes', 'lt.k.titles': 'Titres', 'lt.k.quotes': 'Citations rares',
+'lt.r0': 'Commune', 'lt.r1': 'Rare', 'lt.r2': 'Épique', 'lt.r3': 'Légendaire', 'lt.k.title': 'Titre', 'lt.k.frame': 'Cadre', 'lt.k.theme': 'Thème', 'lt.k.quote': 'Citation',
+'lt.wait.1': 'Un coffre à ouvrir', 'lt.wait.n': '{n} coffres à ouvrir', 'lt.none': 'Plus de coffre. Le prochain t\'attend au niveau {l}.',
+'lt.shards': 'Éclats : {n}', 'lt.swap': 'Échanger', 'lt.col': 'Collection · {a}/{b}',
+'lt.fx.x2': 'XP x2 · {h} h', 'lt.fx.fz': 'Gels de série : {n}', 'lt.fx.rr': 'Changements de quête en plus : {n}', 'lt.fx.dark': 'Quêtes des ténèbres : {n}',
+'lt.rules': 'Un coffre à chaque niveau gagné. Au moins un objet épique tous les 10 coffres. Un objet en double devient des éclats, à échanger contre l\'objet de ton choix : 10 (commun), 20 (rare), 40 (épique) ou 80 (légendaire). L\'XP x2 et les quêtes des ténèbres restent dans la limite de 120 XP par jour.',
+'lt.n.fz': '+1 gel de série', 'lt.n.fz3': '+{n} gels de série', 'lt.n.rr': 'Changement de quête', 'lt.n.sh': '+{n} éclats', 'lt.n.x2d': 'XP x2 pendant 24 h', 'lt.n.x2w': 'XP x2 pendant 3 jours',
+'lt.n.dark': 'Quête des ténèbres', 'lt.n.quote': 'Citation rare', 'lt.n.title': 'Titre : {name}', 'lt.n.frame': 'Cadre : {name}', 'lt.n.theme': 'Thème : {name}',
+'lt.d.freeze': 'Il protège ta série si tu rates un jour. Tu en as {n}.', 'lt.d.reroll': 'Un changement de quête en plus, à utiliser quand tu veux (↻).',
+'lt.d.shards': 'Tu as {s} éclats. Échange-les contre l\'objet exclusif de ton choix : de 10 à 80 éclats selon sa rareté.', 'lt.d.x2': 'Tes quêtes du jour rapportent le double d\'XP. Ça commence maintenant.',
+'lt.d.dark': 'Une quête plus dure que les autres, +40 XP. Elle t\'attend sur Aujourd\'hui.', 'lt.d.title': 'Un titre que seuls les coffres donnent. Affiche-le dans ton profil.',
+'lt.d.frame': 'Un cadre exclusif autour de ton avatar, visible dans le classement.', 'lt.d.theme': 'Un thème exclusif pour toute l\'appli. Choisis-le dans ton profil.',
+'lt.d.fzfull': 'Tes gels sont déjà au maximum : tu gagnes {n} éclats à la place (tu en as {s}).', 'lt.dup': 'Tu l\'avais déjà : il devient {n} éclats (tu en as {s}).',
+'lt.next': 'Suivant ({n})', 'lt.ok': 'Super', 'lt.qn': 'Citation rare n°{n}',
+'lt.swap.t': 'Échanger tes éclats', 'lt.swap.d': 'Plus un objet est rare, plus il coûte d\'éclats. Tu en as {n}.', 'lt.swap.ok': 'Débloqué : {name}',
+'lt.q1': '« Le sommet ne se gagne pas en un jour. Il se gagne chaque jour. »', 'lt.q2': '« Personne ne te regarde quand tu t\'entraînes. C\'est pour ça que ça compte. »',
+'lt.q3': '« La motivation te fait commencer. L\'habitude te fait continuer. »', 'lt.q4': '« Tu ne perds jamais : soit tu gagnes, soit tu apprends. »',
+'lt.q5': '« Fais aujourd\'hui ce que les autres ne veulent pas faire, et demain tu auras ce que les autres n\'ont pas. »', 'lt.q6': '« Le toi d\'il y a un an serait fier du toi d\'aujourd\'hui. Continue. »',
+'lt.d1': 'Fais 100 pompes dans la journée (en plusieurs séries si tu veux).', 'lt.d2': 'Prends une douche froide de 3 minutes.', 'lt.d3': 'Aucun réseau social jusqu\'à 20 h.',
+'lt.d4': 'Fais 2 h de focus dans la journée (minuteur Focus).', 'lt.d5': 'Lève-toi avant 6 h 30 demain et ne retourne pas au lit.', 'lt.d6': 'Marche ou cours 10 000 pas aujourd\'hui.',
+'lt.d7': 'Lis 30 minutes sans téléphone à côté de toi.', 'lt.d8': 'Tiens la planche 3 minutes au total.', 'lt.d9': 'Fais 50 burpees dans la journée.', 'lt.d10': 'Aucun sucre ajouté de toute la journée.',
+'gd.loot.t': '🎁 Les coffres (Butin)', 'gd.loot.d': 'À chaque niveau gagné, tu reçois un coffre. Dedans : gels de série, XP x2, changements de quête, quêtes des ténèbres, citations rares, et des cadres, thèmes et titres qu\'on ne trouve nulle part ailleurs. Ouvre-les dans l\'onglet Butin, au milieu de la barre du bas : ton inventaire y est aussi.'
+});
+Object.assign(T.en, {
+'lt.title': 'Loot', 'lt.open': 'Open', 'lt.card.1': 'A chest is waiting for you', 'lt.card.n': '{n} chests are waiting for you', 'lt.card.d': 'Earned by levelling up. What\'s inside?',
+'lt.lock': 'Found in chests (one chest for every level you gain).', 'lt.short': 'Loot', 'lt.x2.on': 'XP x2 on daily quests · {h} h left',
+'lt.dark.t': '🌑 Dark quest', 'lt.dark.d': 'Harder than the others. It stays until you do it.', 'lt.dark.done': 'Done',
+'lt.dark.q': 'Did you really finish the dark quest? The System trusts your honesty.', 'lt.dark.yes': 'Yes, done', 'lt.dark.ok': 'Dark quest complete',
+'lt.inv': 'Inventory', 'lt.odds': 'Odds per chest', 'lt.swap.no': 'You need {n} more shards.', 'lt.inv.d': 'Everything your chests gave you. Tap a frame, theme or title to equip it.', 'lt.on': 'Equipped',
+'lt.k.frames': 'Frames', 'lt.k.themes': 'Themes', 'lt.k.titles': 'Titles', 'lt.k.quotes': 'Rare quotes',
+'lt.r0': 'Common', 'lt.r1': 'Rare', 'lt.r2': 'Epic', 'lt.r3': 'Legendary', 'lt.k.title': 'Title', 'lt.k.frame': 'Frame', 'lt.k.theme': 'Theme', 'lt.k.quote': 'Quote',
+'lt.wait.1': 'One chest to open', 'lt.wait.n': '{n} chests to open', 'lt.none': 'No chest left. The next one waits for you at level {l}.',
+'lt.shards': 'Shards: {n}', 'lt.swap': 'Trade', 'lt.col': 'Collection · {a}/{b}',
+'lt.fx.x2': 'XP x2 · {h} h', 'lt.fx.fz': 'Streak freezes: {n}', 'lt.fx.rr': 'Extra quest swaps: {n}', 'lt.fx.dark': 'Dark quests: {n}',
+'lt.rules': 'One chest for every level you gain. At least one epic item every 10 chests. A duplicate turns into shards, to trade for the item of your choice: 10 (common), 20 (rare), 40 (epic) or 80 (legendary). XP x2 and dark quests stay within the 120 XP daily limit.',
+'lt.n.fz': '+1 streak freeze', 'lt.n.fz3': '+{n} streak freezes', 'lt.n.rr': 'Quest swap', 'lt.n.sh': '+{n} shards', 'lt.n.x2d': 'XP x2 for 24 h', 'lt.n.x2w': 'XP x2 for 3 days',
+'lt.n.dark': 'Dark quest', 'lt.n.quote': 'Rare quote', 'lt.n.title': 'Title: {name}', 'lt.n.frame': 'Frame: {name}', 'lt.n.theme': 'Theme: {name}',
+'lt.d.freeze': 'It protects your streak if you miss a day. You have {n}.', 'lt.d.reroll': 'One extra quest swap, use it whenever you want (↻).',
+'lt.d.shards': 'You have {s} shards. Trade them for the exclusive item of your choice: 10 to 80 shards depending on its rarity.', 'lt.d.x2': 'Your daily quests give double XP. Starting now.',
+'lt.d.dark': 'A quest harder than the others, +40 XP. It waits for you on Today.', 'lt.d.title': 'A title only chests give. Show it on your profile.',
+'lt.d.frame': 'An exclusive frame around your avatar, visible on the leaderboard.', 'lt.d.theme': 'An exclusive theme for the whole app. Pick it in your profile.',
+'lt.d.fzfull': 'Your freezes are already maxed out: you get {n} shards instead (you have {s}).', 'lt.dup': 'You already had it: it turns into {n} shards (you have {s}).',
+'lt.next': 'Next ({n})', 'lt.ok': 'Great', 'lt.qn': 'Rare quote #{n}',
+'lt.swap.t': 'Trade your shards', 'lt.swap.d': 'The rarer the item, the more shards it costs. You have {n}.', 'lt.swap.ok': 'Unlocked: {name}',
+'lt.q1': '"The summit isn\'t won in a day. It\'s won every day."', 'lt.q2': '"Nobody watches you train. That\'s why it counts."',
+'lt.q3': '"Motivation gets you started. Habit keeps you going."', 'lt.q4': '"You never lose: either you win or you learn."',
+'lt.q5': '"Do today what others won\'t, and tomorrow you\'ll have what others don\'t."', 'lt.q6': '"You from a year ago would be proud of you today. Keep going."',
+'lt.d1': 'Do 100 push-ups today (in several sets if you want).', 'lt.d2': 'Take a 3-minute cold shower.', 'lt.d3': 'No social media until 8 pm.',
+'lt.d4': 'Do 2 hours of focus today (Focus timer).', 'lt.d5': 'Get up before 6:30 tomorrow and don\'t go back to bed.', 'lt.d6': 'Walk or run 10,000 steps today.',
+'lt.d7': 'Read for 30 minutes with no phone next to you.', 'lt.d8': 'Hold a plank for 3 minutes in total.', 'lt.d9': 'Do 50 burpees today.', 'lt.d10': 'No added sugar all day.',
+'gd.loot.t': '🎁 Chests (Loot)', 'gd.loot.d': 'Every level you gain gives you a chest. Inside: streak freezes, XP x2, quest swaps, dark quests, rare quotes, and frames, themes and titles you can\'t get anywhere else. Open them in the Loot tab, in the middle of the bottom bar: your inventory is there too.'
+});
+Object.assign(T.fr, {
+'in.t': 'Installe PeakMind', 'in.d': 'Plein écran, hors ligne, données protégées. Et un cadre exclusif « Pionnier » offert !',
+'in.fr.t': 'Cadre exclusif débloqué !', 'in.fr.d': 'Merci d\'avoir installé PeakMind sur ton écran d\'accueil. Le cadre « Pionnier » est à toi : on ne peut l\'avoir qu\'en installant l\'appli.',
+'in.fr.equip': 'L\'équiper', 'in.fr.lock': 'Installe PeakMind sur ton écran d\'accueil, puis ouvre-la depuis l\'icône pour le débloquer.', 'in.fr.short': 'Installe l\'appli',
 'in.go': 'Installer', 'in.how': 'Comment ?', 'in.later': 'Plus tard', 'in.done': 'PeakMind est installé 🏔️', 'in.ok': 'Compris',
 'in.why': 'Une fois installée, l\'appli s\'ouvre comme une vraie appli, marche sans réseau, et ton téléphone garde tes données (sur iPhone, un site non installé peut les effacer après quelques jours sans visite).',
 'in.ios1': 'Ouvre PeakMind dans Safari.', 'in.ios2': 'Touche le bouton Partager (le carré avec une flèche vers le haut).', 'in.ios3': 'Choisis « Sur l\'écran d\'accueil », puis « Ajouter ».',
@@ -4008,7 +4559,9 @@ Object.assign(T.fr, {
 'in.already': 'PeakMind est déjà installé sur ce téléphone ✓', 's.lastExp': 'Dernière sauvegarde : {d}', 's.lastExp.never': 'Aucune sauvegarde pour l\'instant.'
 });
 Object.assign(T.en, {
-'in.t': 'Install PeakMind', 'in.d': 'Full screen, offline, data protected.',
+'in.t': 'Install PeakMind', 'in.d': 'Full screen, offline, data protected. Plus an exclusive "Pioneer" frame!',
+'in.fr.t': 'Exclusive frame unlocked!', 'in.fr.d': 'Thanks for installing PeakMind on your home screen. The "Pioneer" frame is yours: the only way to get it is to install the app.',
+'in.fr.equip': 'Equip it', 'in.fr.lock': 'Install PeakMind on your home screen, then open it from the icon to unlock it.', 'in.fr.short': 'Install the app',
 'in.go': 'Install', 'in.how': 'How?', 'in.later': 'Later', 'in.done': 'PeakMind is installed 🏔️', 'in.ok': 'Got it',
 'in.why': 'Once installed, the app opens like a real app, works offline, and your phone keeps your data (on iPhone, a site that isn\'t installed can erase it after a few days without visits).',
 'in.ios1': 'Open PeakMind in Safari.', 'in.ios2': 'Tap the Share button (the square with an arrow pointing up).', 'in.ios3': 'Choose “Add to Home Screen”, then “Add”.',
@@ -4161,6 +4714,10 @@ Object.assign(T.en, {
 'bk.d.old': 'Last backup on {d}. Make a new one to keep your latest progress.', 'bk.go': 'Back up', 'bk.ok': 'Backup downloaded 💾'
 });
 const NEWS = {
+'1.7.0': {
+fr: ['✨ Nouveau look : plus d\'espace, et des icônes dessinées à la place des emojis', '⚡ Des animations quand tu changes de page', '🎯 Quêtes plus dures, et leur difficulté monte à chaque niveau. Limite : 120 XP par jour (au lieu de 150) : chaque niveau se mérite', '📈 Plus tu montes, plus il faut d\'XP pour passer au niveau suivant (tu gardes ton niveau actuel)', '🧭 Moins de texte : touche le titre d\'une quête pour voir son conseil', '🏆 Tout le monde est dans le classement mondial, sous un pseudo tiré au hasard (jamais ton prénom) : change-le ou retire-toi quand tu veux', '❄️ Gel de série : chaque journée parfaite te donne un gel (2 max) qui protège ta série si tu rates un jour', '📲 Installe PeakMind sur ton écran d\'accueil : cadre exclusif « Pionnier » offert', '🎧 Les sons de PeakMind ne coupent plus ta musique (Spotify…)', '🎁 Coffres : un coffre à chaque niveau gagné, avec des cadres, thèmes et titres introuvables ailleurs (onglet Butin, au milieu de la barre du bas)'],
+en: ['✨ New look: more space, and drawn icons instead of emojis', '⚡ Animations when you switch pages', '🎯 Harder quests, and their difficulty rises with every level. Limit: 120 XP per day (instead of 150): every level is earned', '📈 The higher you climb, the more XP each next level takes (you keep your current level)', '🧭 Less text: tap a quest\'s title to see its tip', '🏆 Everyone is in the world ranking, under a random username (never your first name): change it or leave anytime', '❄️ Streak freeze: every perfect day gives you one (2 max), protecting your streak if you miss a day', '📲 Install PeakMind on your home screen: exclusive "Pioneer" frame', '🎧 PeakMind sounds no longer stop your music (Spotify…)', '🎁 Chests: one chest for every level you gain, with frames, themes and titles you can\'t get anywhere else (Loot tab, in the middle of the bottom bar)']
+},
 '1.6.0': {
 fr: ['🏆 Le classement mondial est ouvert : monde, semaine et amis (onglet Classement)', '⚠️ Quêtes urgentes : toutes les 4 h, une quête surprise, 2 h pour la faire', '🎯 Quêtes plus ciblées : sport, discipline, lecture, apprendre… faisables par tout le monde', '⚡ Jusqu\'à 150 XP par jour au lieu de 100', '🧭 Accueil mieux rangé : le Système, tes objectifs, les défis, ta progression', '🐞 Les fenêtres (comme le Coffre) se ferment en glissant vers le bas'],
 en: ['🏆 The global leaderboard is open: world, week and friends (Ranking tab)', '⚠️ Urgent quests: every 4 hours, a surprise quest, 2 hours to do it', '🎯 More focused quests: sport, discipline, reading, learning… doable by everyone', '⚡ Up to 150 XP per day instead of 100', '🧭 A tidier home screen: the System, your goals, challenges, your progress', '🐞 Sheets (like the Vault) close by swiping down']
@@ -4174,7 +4731,8 @@ function newsCard() {
 const n = NEWS[VERSION];
 if (!S.onboarded || !n || S.seenVersion === VERSION) return '';
 return `<section class="card news-card"><div class="row between" style="flex-wrap:nowrap"><b>✨ ${esc(t('nw.t', { v: VERSION }))}</b><button type="button" class="icon-btn" id="nwOk" aria-label="${esc(t('close'))}">✕</button></div>
-      <ul class="list-plain">${(n[S.lang] || n.fr).map(x => `<li>${esc(x)}</li>`).join('')}</ul></section>`;
+      ${(() => { const L0 = n[S.lang] || n.fr, a = L0.slice(0, 3), b = L0.slice(3);
+return `<ul class="list-plain">${a.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` + (b.length ? `<details class="nw-more"><summary>${S.lang === 'en' ? 'See all' : 'Voir tout'} (+${b.length})</summary><ul class="list-plain">${b.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''); })()}</section>`;
 }
 function bindNews(root) { const b = root.querySelector('#nwOk'); if (b) b.onclick = () => { S.seenVersion = VERSION; save(); SFX.play('close'); render(); }; }
 Object.assign(T.fr, { 'nw.t': 'Nouveautés de PeakMind {v}' });
@@ -4313,7 +4871,6 @@ Object.assign(T.en, {
 });
 if (betaLocked()) { showBetaGate(); return; }
 document.querySelectorAll('.tabbar [data-tab]').forEach(b => b.onclick = () => { if (S.tab !== b.dataset.tab) SFX.play('nav'); S.tab = b.dataset.tab; saveUI(); closeSheet(); render(); view.focus({ preventScroll: true }); window.scrollTo(0, 0); });
-$('#addBtn').onclick = openNew;
 $('#langBtn').onclick = () => { S.lang = S.lang === 'fr' ? 'en' : 'fr'; save(); render(); SFX.play('nav'); };
 $('#setBtn').onclick = () => { if (S.tab !== 'settings') SFX.play('nav'); S.tab = 'settings'; save(); closeSheet(); render(); window.scrollTo(0, 0); };
 window.addEventListener('online', () => { if (S.tab === 'league' && S.league && S.league.joined) { league().err = ''; leagueLoad(league().scope || 'world', true); renderLeague(); } });
@@ -4322,12 +4879,19 @@ setInterval(() => document.querySelectorAll('[data-since]').forEach(el => {
 const g = byId(el.dataset.since); if (!g) return; const ms = quitMs(g);
 el.textContent = t('quit.days', { d: Math.floor(ms / 86400000), h: Math.floor(ms / 3600000) % 24 });
 }), 60000);
+if (S.xpOff == null) { S.xpOff = S.onboarded ? xpMigrate(ppStats().total) : 0; dirty(); save(); }
+applyFreezes(); freezeNotice();
+if (!S.cap2) { S.cap2 = S.onboarded ? dkey(addDays(new Date(), 1)) : today(); save(); }
+if (S.onboarded) lootTick();
+if (S.onboarded && standalone() && !S.installed) { S.installed = today(); save(); setTimeout(installReward, 2600); }
 checkBadges(); render();
 if (S.onboarded && navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p => p || navigator.storage.persist()).catch(() => {  });
 checkLevelUp(ppStats(), 900);
 if (S.league && S.league.joined) leagueSync(false).catch(() => {});
+else setTimeout(autoJoinLeague, 3000);
+if (S.league && S.league.autoNew) setTimeout(maybeLeagueNotice, 3500);
 setTimeout(pingUsers, 4000);
 setTimeout(countOpen, 2500);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) countOpen(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (applyFreezes()) { freezeNotice(); render(); } countOpen(); } });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {  });
 })();
