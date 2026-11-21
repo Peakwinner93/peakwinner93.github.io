@@ -375,7 +375,13 @@ const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); r
 const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
 const daysBetween = (a, b) => Math.round((parseKey(b) - parseKey(a)) / 86400000);
 const fr1 = s => S.lang === 'fr' ? s.replace(/(^|\s)1(?=\s)/, (m, sp) => sp + '1er') : s;
-const fmtDate = (k, long) => fr1(parseKey(k).toLocaleDateString(S.lang === 'fr' ? 'fr-FR' : 'en-US', long ? { weekday: 'long', day: 'numeric', month: 'long' } : { day: 'numeric', month: 'short' }));
+const DTF = {}, FMT = new Map();
+const dtf = (kind, opts) => { const k = S.lang + kind; return DTF[k] || (DTF[k] = new Intl.DateTimeFormat(S.lang === 'fr' ? 'fr-FR' : 'en-US', opts)); };
+const fmtDate = (k, long) => {
+const ck = S.lang + (long ? 'L' : 'S') + k; let v = FMT.get(ck);
+if (v === undefined) { v = fr1(dtf(long ? 'L' : 'S', long ? { weekday: 'long', day: 'numeric', month: 'long' } : { day: 'numeric', month: 'short' }).format(parseKey(k))); if (FMT.size > 3000) FMT.clear(); FMT.set(ck, v); }
+return v;
+};
 function current(g) { return g.type === 'save' ? saveTotal(g) : g.entries && g.entries.length ? g.entries[g.entries.length - 1].v : g.start; }
 const saveTotal = g => Math.max(0, Math.round((g.dep || []).reduce((s, e) => s + e.a, 0) * 100) / 100);
 function pct(g) { const span = g.target - g.start; if (!span) return 1; return Math.max(0, Math.min(1, (current(g) - g.start) / span)); }
@@ -696,7 +702,7 @@ let shownTab = null, animTimer = null;
 function animateView(dir) {
 view.style.setProperty('--dir', dir);
 [...view.children].forEach((el, i) => el.style.setProperty('--i', Math.min(i, 9)));
-view.classList.remove('tab-in'); void view.offsetWidth; view.classList.add('tab-in');
+view.classList.add('tab-in');
 clearTimeout(animTimer); animTimer = setTimeout(() => view.classList.remove('tab-in'), 1100);
 }
 const AVATARS = ['initials', 'peak', 'target', 'bolt', 'flame', 'shield', 'crown', 'compass', 'dumbbell', 'diamond', 'trend', 'book', 'summit', 'star',
@@ -4116,7 +4122,7 @@ const start = addDays(now, -((now.getDay() + 6) % 7) - (W - 1) * 7);
 let cells = '', active = 0, lastMonth = -1, months = '';
 for (let w = 0; w < W; w++) {
 const mon = addDays(start, w * 7);
-if (mon.getMonth() !== lastMonth) { months += `<span style="grid-column:${w + 1}">${esc(mon.toLocaleDateString(S.lang === 'fr' ? 'fr-FR' : 'en-US', { month: 'short' }).replace('.', ''))}</span>`; lastMonth = mon.getMonth(); }
+if (mon.getMonth() !== lastMonth) { months += `<span style="grid-column:${w + 1}">${esc(dtf('M', { month: 'short' }).format(mon).replace('.', ''))}</span>`; lastMonth = mon.getMonth(); }
 for (let d = 0; d < 7; d++) {
 const k = dkey(addDays(mon, d));
 if (k > tk) { cells += '<i class="fut"></i>'; continue; }
