@@ -67,7 +67,7 @@ fr: {
 'i.sport': 'Sport & physique', 'i.study': 'Études', 'i.social': 'Réseaux sociaux', 'i.health': 'Santé & sommeil', 'i.quit': 'Arrêter une mauvaise habitude', 'i.money': 'Argent & projets',
 'sugg.t': 'Suggestions pour toi', 'sugg.other': 'Un autre objectif', 'sugg.other.d': 'Choisis parmi tous les types', 's.replay': 'Revoir l\'accueil',
 's.sound': 'Sons', 's.sound.on': 'Activés', 's.sound.off': 'Coupés',
-'s.mix': 'Avec ta musique (Spotify…)', 's.mix.on': 'Ne pas la couper', 's.mix.loud': 'Priorité aux sons',
+'s.mix': 'Avec ta musique (Spotify…)', 's.mix.on': 'Ne pas couper ma musique', 's.mix.loud': 'Sons même en silencieux',
 's.mix.on.d': 'Ta musique continue pendant les sons de PeakMind. En mode silencieux, les sons de PeakMind sont coupés.',
 's.mix.loud.d': 'Les sons de PeakMind jouent même en mode silencieux, mais ils mettent ta musique en pause.',
 'tab.league': 'Classement', 'lg.live': 'En ligne', 'lg.world': 'Monde', 'lg.week': 'Semaine', 'lg.friends': 'Amis', 'lg.you': 'toi',
@@ -184,7 +184,7 @@ en: {
 'i.sport': 'Sport & fitness', 'i.study': 'School', 'i.social': 'Social media', 'i.health': 'Health & sleep', 'i.quit': 'Quit a bad habit', 'i.money': 'Money & projects',
 'sugg.t': 'Suggested for you', 'sugg.other': 'Another goal', 'sugg.other.d': 'Pick from every type', 's.replay': 'Replay the welcome',
 's.sound': 'Sounds', 's.sound.on': 'On', 's.sound.off': 'Off',
-'s.mix': 'With your music (Spotify…)', 's.mix.on': 'Keep it playing', 's.mix.loud': 'Sounds first',
+'s.mix': 'With your music (Spotify…)', 's.mix.on': 'Keep my music playing', 's.mix.loud': 'Sounds even in silent mode',
 's.mix.on.d': 'Your music keeps playing during PeakMind sounds. In silent mode, PeakMind sounds are muted.',
 's.mix.loud.d': 'PeakMind sounds play even in silent mode, but they pause your music.',
 'tab.league': 'Ranking', 'lg.live': 'Live', 'lg.world': 'World', 'lg.week': 'Week', 'lg.friends': 'Friends', 'lg.you': 'you',
@@ -496,7 +496,8 @@ fb.gain.value = .32; damp.type = 'lowpass'; damp.frequency.value = 2600; wet.gai
 echo.connect(damp); damp.connect(fb); fb.connect(echo); damp.connect(wet); wet.connect(master);
 return ctx;
 }
-function session() { try { if (navigator.audioSession) navigator.audioSession.type = S.soundLoud ? 'playback' : 'ambient'; } catch (e) {  } }
+const loud = () => S.soundLoud !== false;
+function session() { try { if (navigator.audioSession) navigator.audioSession.type = loud() ? 'playback' : 'ambient'; } catch (e) {  } }
 const locked = () => !ctx || ctx.state !== 'running';
 function unlock() {
 if (!on() || !init()) return Promise.resolve();
@@ -1345,7 +1346,7 @@ view.innerHTML = `<h2 style="font-size:1.9rem;text-transform:uppercase">${esc(t(
           <input type="file" id="setPhoto" accept="image/*" hidden></div>
         <div class="field">${esc(t('s.lang'))}<div class="chips"><button type="button" class="chip" data-lang="fr" aria-pressed="${S.lang === 'fr'}">Français</button><button type="button" class="chip" data-lang="en" aria-pressed="${S.lang === 'en'}">English</button></div></div>
         <div class="field">${esc(t('s.sound'))}<div class="chips"><button type="button" class="chip" data-sound="on" aria-pressed="${S.sound !== false}">${esc(t('s.sound.on'))}</button><button type="button" class="chip" data-sound="off" aria-pressed="${S.sound === false}">${esc(t('s.sound.off'))}</button></div></div>
-        ${navigator.audioSession && S.sound !== false ? `<div class="field">${esc(t('s.mix'))}<div class="chips"><button type="button" class="chip" data-mix="mix" aria-pressed="${!S.soundLoud}">${esc(t('s.mix.on'))}</button><button type="button" class="chip" data-mix="loud" aria-pressed="${!!S.soundLoud}">${esc(t('s.mix.loud'))}</button></div><small class="muted">${esc(t(S.soundLoud ? 's.mix.loud.d' : 's.mix.on.d'))}</small></div>` : ''}
+        ${navigator.audioSession && S.sound !== false ? `<div class="field">${esc(t('s.mix'))}<div class="chips"><button type="button" class="chip" data-mix="mix" aria-pressed="${S.soundLoud === false}">${esc(t('s.mix.on'))}</button><button type="button" class="chip" data-mix="loud" aria-pressed="${S.soundLoud !== false}">${esc(t('s.mix.loud'))}</button></div><small class="muted">${esc(t(S.soundLoud !== false ? 's.mix.loud.d' : 's.mix.on.d'))}</small></div>` : ''}
         <div class="field">${esc(t('s.theme'))}<button type="button" class="theme-row" id="setTheme">${themePreview(themeOf(), 'mini')}<b>${esc(L(themeOf(), ''))}</b><span class="muted">${esc(t('s.theme.change'))} ›</span></button></div>
         <button type="button" class="btn subtle" id="replayIntro">${IC.spark}${esc(t('s.replay'))}</button>
       </section>
@@ -4721,8 +4722,8 @@ Object.assign(T.en, {
 });
 const NEWS = {
 '1.7.0': {
-fr: ['✨ Nouveau look : plus d\'espace, et des icônes dessinées à la place des emojis', '⚡ Des animations quand tu changes de page', '👆 Glisse ton doigt vers la gauche ou la droite pour changer de page', '🎯 Quêtes plus dures, et leur difficulté monte à chaque niveau. Limite : 120 XP par jour (au lieu de 150) : chaque niveau se mérite', '📈 Plus tu montes, plus il faut d\'XP pour passer au niveau suivant (tu gardes ton niveau actuel)', '🧭 Moins de texte : touche le titre d\'une quête pour voir son conseil', '🏆 Tout le monde est dans le classement mondial, sous un pseudo tiré au hasard (jamais ton prénom) : change-le ou retire-toi quand tu veux', '❄️ Gel de série : chaque journée parfaite te donne un gel (2 max) qui protège ta série si tu rates un jour', '📲 Installe PeakMind sur ton écran d\'accueil : cadre exclusif « Pionnier » offert', '🎧 Les sons de PeakMind ne coupent plus ta musique (Spotify…)', '🎁 Coffres : un coffre à chaque niveau gagné, avec des cadres, thèmes et titres introuvables ailleurs (onglet Butin, au milieu de la barre du bas)'],
-en: ['✨ New look: more space, and drawn icons instead of emojis', '⚡ Animations when you switch pages', '👆 Swipe left or right to switch pages', '🎯 Harder quests, and their difficulty rises with every level. Limit: 120 XP per day (instead of 150): every level is earned', '📈 The higher you climb, the more XP each next level takes (you keep your current level)', '🧭 Less text: tap a quest\'s title to see its tip', '🏆 Everyone is in the world ranking, under a random username (never your first name): change it or leave anytime', '❄️ Streak freeze: every perfect day gives you one (2 max), protecting your streak if you miss a day', '📲 Install PeakMind on your home screen: exclusive "Pioneer" frame', '🎧 PeakMind sounds no longer stop your music (Spotify…)', '🎁 Chests: one chest for every level you gain, with frames, themes and titles you can\'t get anywhere else (Loot tab, in the middle of the bottom bar)']
+fr: ['✨ Nouveau look : plus d\'espace, et des icônes dessinées à la place des emojis', '⚡ Des animations quand tu changes de page', '👆 Glisse ton doigt vers la gauche ou la droite pour changer de page', '🎯 Quêtes plus dures, et leur difficulté monte à chaque niveau. Limite : 120 XP par jour (au lieu de 150) : chaque niveau se mérite', '📈 Plus tu montes, plus il faut d\'XP pour passer au niveau suivant (tu gardes ton niveau actuel)', '🧭 Moins de texte : touche le titre d\'une quête pour voir son conseil', '🏆 Tout le monde est dans le classement mondial, sous un pseudo tiré au hasard (jamais ton prénom) : change-le ou retire-toi quand tu veux', '❄️ Gel de série : chaque journée parfaite te donne un gel (2 max) qui protège ta série si tu rates un jour', '📲 Installe PeakMind sur ton écran d\'accueil : cadre exclusif « Pionnier » offert', '🎧 Tu écoutes Spotify ? Réglages › « Ne pas couper ma musique » : les sons de PeakMind ne coupent plus ta musique', '🎁 Coffres : un coffre à chaque niveau gagné, avec des cadres, thèmes et titres introuvables ailleurs (onglet Butin, au milieu de la barre du bas)'],
+en: ['✨ New look: more space, and drawn icons instead of emojis', '⚡ Animations when you switch pages', '👆 Swipe left or right to switch pages', '🎯 Harder quests, and their difficulty rises with every level. Limit: 120 XP per day (instead of 150): every level is earned', '📈 The higher you climb, the more XP each next level takes (you keep your current level)', '🧭 Less text: tap a quest\'s title to see its tip', '🏆 Everyone is in the world ranking, under a random username (never your first name): change it or leave anytime', '❄️ Streak freeze: every perfect day gives you one (2 max), protecting your streak if you miss a day', '📲 Install PeakMind on your home screen: exclusive "Pioneer" frame', '🎧 Listening to Spotify? Settings › "Keep my music playing": PeakMind sounds no longer stop your music', '🎁 Chests: one chest for every level you gain, with frames, themes and titles you can\'t get anywhere else (Loot tab, in the middle of the bottom bar)']
 },
 '1.6.0': {
 fr: ['🏆 Le classement mondial est ouvert : monde, semaine et amis (onglet Classement)', '⚠️ Quêtes urgentes : toutes les 4 h, une quête surprise, 2 h pour la faire', '🎯 Quêtes plus ciblées : sport, discipline, lecture, apprendre… faisables par tout le monde', '⚡ Jusqu\'à 150 XP par jour au lieu de 100', '🧭 Accueil mieux rangé : le Système, tes objectifs, les défis, ta progression', '🐞 Les fenêtres (comme le Coffre) se ferment en glissant vers le bas'],
