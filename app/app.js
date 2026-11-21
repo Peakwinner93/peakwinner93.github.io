@@ -4715,8 +4715,8 @@ Object.assign(T.en, {
 });
 const NEWS = {
 '1.7.0': {
-fr: ['✨ Nouveau look : plus d\'espace, et des icônes dessinées à la place des emojis', '⚡ Des animations quand tu changes de page', '🎯 Quêtes plus dures, et leur difficulté monte à chaque niveau. Limite : 120 XP par jour (au lieu de 150) : chaque niveau se mérite', '📈 Plus tu montes, plus il faut d\'XP pour passer au niveau suivant (tu gardes ton niveau actuel)', '🧭 Moins de texte : touche le titre d\'une quête pour voir son conseil', '🏆 Tout le monde est dans le classement mondial, sous un pseudo tiré au hasard (jamais ton prénom) : change-le ou retire-toi quand tu veux', '❄️ Gel de série : chaque journée parfaite te donne un gel (2 max) qui protège ta série si tu rates un jour', '📲 Installe PeakMind sur ton écran d\'accueil : cadre exclusif « Pionnier » offert', '🎧 Les sons de PeakMind ne coupent plus ta musique (Spotify…)', '🎁 Coffres : un coffre à chaque niveau gagné, avec des cadres, thèmes et titres introuvables ailleurs (onglet Butin, au milieu de la barre du bas)'],
-en: ['✨ New look: more space, and drawn icons instead of emojis', '⚡ Animations when you switch pages', '🎯 Harder quests, and their difficulty rises with every level. Limit: 120 XP per day (instead of 150): every level is earned', '📈 The higher you climb, the more XP each next level takes (you keep your current level)', '🧭 Less text: tap a quest\'s title to see its tip', '🏆 Everyone is in the world ranking, under a random username (never your first name): change it or leave anytime', '❄️ Streak freeze: every perfect day gives you one (2 max), protecting your streak if you miss a day', '📲 Install PeakMind on your home screen: exclusive "Pioneer" frame', '🎧 PeakMind sounds no longer stop your music (Spotify…)', '🎁 Chests: one chest for every level you gain, with frames, themes and titles you can\'t get anywhere else (Loot tab, in the middle of the bottom bar)']
+fr: ['✨ Nouveau look : plus d\'espace, et des icônes dessinées à la place des emojis', '⚡ Des animations quand tu changes de page', '👆 Glisse ton doigt vers la gauche ou la droite pour changer de page', '🎯 Quêtes plus dures, et leur difficulté monte à chaque niveau. Limite : 120 XP par jour (au lieu de 150) : chaque niveau se mérite', '📈 Plus tu montes, plus il faut d\'XP pour passer au niveau suivant (tu gardes ton niveau actuel)', '🧭 Moins de texte : touche le titre d\'une quête pour voir son conseil', '🏆 Tout le monde est dans le classement mondial, sous un pseudo tiré au hasard (jamais ton prénom) : change-le ou retire-toi quand tu veux', '❄️ Gel de série : chaque journée parfaite te donne un gel (2 max) qui protège ta série si tu rates un jour', '📲 Installe PeakMind sur ton écran d\'accueil : cadre exclusif « Pionnier » offert', '🎧 Les sons de PeakMind ne coupent plus ta musique (Spotify…)', '🎁 Coffres : un coffre à chaque niveau gagné, avec des cadres, thèmes et titres introuvables ailleurs (onglet Butin, au milieu de la barre du bas)'],
+en: ['✨ New look: more space, and drawn icons instead of emojis', '⚡ Animations when you switch pages', '👆 Swipe left or right to switch pages', '🎯 Harder quests, and their difficulty rises with every level. Limit: 120 XP per day (instead of 150): every level is earned', '📈 The higher you climb, the more XP each next level takes (you keep your current level)', '🧭 Less text: tap a quest\'s title to see its tip', '🏆 Everyone is in the world ranking, under a random username (never your first name): change it or leave anytime', '❄️ Streak freeze: every perfect day gives you one (2 max), protecting your streak if you miss a day', '📲 Install PeakMind on your home screen: exclusive "Pioneer" frame', '🎧 PeakMind sounds no longer stop your music (Spotify…)', '🎁 Chests: one chest for every level you gain, with frames, themes and titles you can\'t get anywhere else (Loot tab, in the middle of the bottom bar)']
 },
 '1.6.0': {
 fr: ['🏆 Le classement mondial est ouvert : monde, semaine et amis (onglet Classement)', '⚠️ Quêtes urgentes : toutes les 4 h, une quête surprise, 2 h pour la faire', '🎯 Quêtes plus ciblées : sport, discipline, lecture, apprendre… faisables par tout le monde', '⚡ Jusqu\'à 150 XP par jour au lieu de 100', '🧭 Accueil mieux rangé : le Système, tes objectifs, les défis, ta progression', '🐞 Les fenêtres (comme le Coffre) se ferment en glissant vers le bas'],
@@ -4870,7 +4870,32 @@ Object.assign(T.en, {
 'bt.setD': 'You\'re one of the testers. A problem, an idea? Say it here, and answer the survey at the end of the week.'
 });
 if (betaLocked()) { showBetaGate(); return; }
-document.querySelectorAll('.tabbar [data-tab]').forEach(b => b.onclick = () => { if (S.tab !== b.dataset.tab) SFX.play('nav'); S.tab = b.dataset.tab; saveUI(); closeSheet(); render(); view.focus({ preventScroll: true }); window.scrollTo(0, 0); });
+function goTab(tab) { if (S.tab !== tab) SFX.play('nav'); S.tab = tab; saveUI(); closeSheet(); render(); view.focus({ preventScroll: true }); window.scrollTo(0, 0); }
+document.querySelectorAll('.tabbar [data-tab]').forEach(b => b.onclick = () => goTab(b.dataset.tab));
+const SWIPE_TABS = ['today', 'goals', 'loot', 'league', 'profile'];
+let swipe0 = null;
+function blocksSwipe(el) {
+for (let n = el; n && n !== view && n.nodeType === 1; n = n.parentElement) {
+if (n.matches('input, textarea, select, [contenteditable="true"], canvas, [data-noswipe]')) return true;
+if (n.scrollWidth > n.clientWidth + 2) { const ox = getComputedStyle(n).overflowX; if (ox === 'auto' || ox === 'scroll') return true; }
+}
+return false;
+}
+view.addEventListener('touchstart', e => {
+swipe0 = null;
+if (e.touches.length !== 1 || !S.onboarded || !sheet.hidden || !welcomeEl.hidden || !SWIPE_TABS.includes(S.tab)) return;
+const tc = e.touches[0]; if (tc.clientX < 24 || blocksSwipe(e.target)) return;
+swipe0 = { x: tc.clientX, y: tc.clientY, t: Date.now() };
+}, { passive: true });
+view.addEventListener('touchcancel', () => { swipe0 = null; }, { passive: true });
+view.addEventListener('touchend', e => {
+if (!swipe0) return;
+const tc = e.changedTouches[0], dx = tc.clientX - swipe0.x, dy = tc.clientY - swipe0.y, dt = Date.now() - swipe0.t; swipe0 = null;
+if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8 || dt > 700) return;
+const j = SWIPE_TABS.indexOf(S.tab) + (dx < 0 ? 1 : -1);
+if (j < 0 || j >= SWIPE_TABS.length || !sheet.hidden) return;
+goTab(SWIPE_TABS[j]);
+}, { passive: true });
 $('#langBtn').onclick = () => { S.lang = S.lang === 'fr' ? 'en' : 'fr'; save(); render(); SFX.play('nav'); };
 $('#setBtn').onclick = () => { if (S.tab !== 'settings') SFX.play('nav'); S.tab = 'settings'; save(); closeSheet(); render(); window.scrollTo(0, 0); };
 window.addEventListener('online', () => { if (S.tab === 'league' && S.league && S.league.joined) { league().err = ''; leagueLoad(league().scope || 'world', true); renderLeague(); } });
