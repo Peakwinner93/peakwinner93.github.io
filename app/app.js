@@ -4893,5 +4893,13 @@ if (S.league && S.league.autoNew) setTimeout(maybeLeagueNotice, 3500);
 setTimeout(pingUsers, 4000);
 setTimeout(countOpen, 2500);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (applyFreezes()) { freezeNotice(); render(); } countOpen(); } });
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {  });
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+const hadSW = !!navigator.serviceWorker.controller, swT0 = Date.now();
+navigator.serviceWorker.addEventListener('controllerchange', () => {
+if (!hadSW || Date.now() - swT0 > 20000) return;
+try { if (sessionStorage.getItem('pm.swReload')) return; sessionStorage.setItem('pm.swReload', '1'); } catch (e) { return; }
+location.reload();
+});
+navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {  });
+}
 })();

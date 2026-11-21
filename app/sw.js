@@ -1,5 +1,5 @@
 // Service worker : met l'appli en cache pour qu'elle s'ouvre même sans connexion.
-const CACHE = 'peakmind-v46';
+const CACHE = 'peakmind-v47';
 const FONTS = ['chakrapetch-500-latin', 'chakrapetch-500-latin-ext', 'chakrapetch-600-latin', 'chakrapetch-600-latin-ext', 'chakrapetch-700-latin', 'chakrapetch-700-latin-ext',
   'spacegrotesk-latin', 'spacegrotesk-latin-ext'].map(f => `fonts/${f}.woff2`);   // polices intégrées : l'appli garde son style hors ligne dès la 1re visite
 const SHELL = ['./', 'index.html', 'styles.css', 'config.js', 'quests.js', 'money.js', 'app.js', 'manifest.webmanifest',
@@ -24,7 +24,7 @@ self.addEventListener('fetch', e => {
     const finish = r => { if (!done && r) { done = true; resolve(r); } };
     const saved = () => caches.match(e.request).then(r => r || (e.request.mode === 'navigate' ? caches.match('index.html') : undefined));
     const timer = setTimeout(() => saved().then(finish), 3000);
-    fetch(e.request).then(res => {
+    fetch(e.request, { cache: 'no-cache' }).then(res => {   // toujours redemander au serveur s'il y a du nouveau (réponse courte « rien de neuf » sinon)
       if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
       clearTimeout(timer); finish(res);
     }).catch(() => saved().then(r => { clearTimeout(timer); finish(r || Response.error()); }));
